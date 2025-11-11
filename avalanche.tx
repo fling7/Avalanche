@@ -103,7 +103,7 @@ Scenario: 'scenario' name=ID '{' steps*=Step '}' ;
 
 Step: ActionStep | Choice | Parallel | Wait | Sync ;
 
-ExpectSpec: 'expect' ( reaction=Action | expect=Expr ) ;
+ExpectSpec: 'expect' expect=Expr ;
 
 ActionStep:
     'do' action=Action
@@ -136,9 +136,9 @@ State:
     'state' name=ID
         ( 'mode' mode=ID )?
         '{'
-            ( 'entry' ':' entry=Action ';' )?
+            ( 'entry' ':' ('do')? entry=Action ';' )?
             transitions*=Transition
-            ( 'exit'  ':' exit=Action  ';' )?
+            ( 'exit'  ':' ('do')? exit=Action  ';' )?
         '}'
 ;
 
@@ -146,7 +146,7 @@ Transition:
     'on' ev=[Event]
         ( 'guard' guard=Expr )?
         '->' target=[State]
-        ( 'effect' action=Action )?
+        ( 'effect' ('do')? action=Action )?
         ';'
 ;
 
@@ -186,9 +186,9 @@ Concurrency:
 // ---------------------- Object lifecycle ----------------------
 Lifecycle:
     'lifecycle' obj=ID '{'
-        ( 'create' ':' create=Action ';' )?
-        ( 'update' ':' update=Action ';' )?
-        ( 'delete' ':' delete=Action ';' )?
+        ( 'create' ':' ('do')? create=Action ';' )?
+        ( 'update' ':' ('do')? update=Action ';' )?
+        ( 'delete' ':' ('do')? delete=Action ';' )?
         ( 'states' ':' states+=ID (',' states+=ID)* ';' )?
     '}'
 ;
@@ -217,7 +217,7 @@ Shape:
 SpatialRule:
       'proximity' a=Ref 'to' b=Ref '<' dist=FLOAT unit=DistanceUnit ';'
     | 'visible'   a=Ref 'to' b=Ref ';'
-    | 'collision' a=Ref 'with' b=Ref '->' action=Action ';'
+    | 'collision' a=Ref 'with' b=Ref '->' ('do')? action=Action ';'
 ;
 
 // ---------------------- Non-functional properties ----------------------
@@ -287,7 +287,7 @@ AddExpr: MulExpr ( ('+'|'-') MulExpr )* ;
 MulExpr: Unary ( ('*'|'/') Unary )* ;
 Unary:   ( '!' | '-' )* Primary ;
 
-Primary: Value | Ref | '(' Expr ')' ;
+Primary: Value | Action | Ref | '(' Expr ')' ;
 Ref: ID ('.' ID)* ;
 
 Value: STRING | FLOAT | INT | BOOL | Duration | Array | Range ;
