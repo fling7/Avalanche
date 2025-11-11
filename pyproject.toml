@@ -1,0 +1,11 @@
+
+[project]
+name = "avalanche-dsl"
+version = "0.1.5"
+description = "AVALANCHE DSL (textX): Adaptive Variable Language Architecture for Nonlinear Contextual Handling and Evolution"
+requires-python = ">=3.9"
+dependencies = ["textX>=3.1.0", "pytest>=7.0"]
+authors = [{name="Your Name"}]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

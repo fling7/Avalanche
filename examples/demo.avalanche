@@ -1,0 +1,132 @@
+package demo.avalanche;
+import "std.avalanche";
+
+type Severity = enum { LOW, MEDIUM, HIGH };
+type Pose = record { x: float; y: float; z: float; };
+
+message Alarm {
+  level: Severity;
+  code: int;
+}
+
+dist D_ALARM = bernoulli(p=0.05);
+dist D_SENSOR = normal(mu=0.0, sigma=1.0);
+
+actor Operator {
+  attr role: string = "operator";
+  port input: Alarm [in];
+  action acknowledge(code: int);
+}
+
+actor Motor {
+  attr rpm: float = 0.0;
+  port alarm_out: Alarm [out];
+  action start(id: string);
+  action stop();
+}
+
+channel C1 from Operator.input to Motor.alarm_out type: Alarm latency = 2ms capacity = 32;
+
+event ButtonPress type Input when user.role == "operator";
+event AlarmRaised arrival = D_ALARM payload { level: Severity; code: int; };
+event RpmReached when motor.rpm >= 1000.0;
+
+trigger T_Press on ButtonPress guard sys.state == READY do log(msg="press");
+trigger T_Alarm on AlarmRaised do raise_alarm(level="HIGH", code=42);
+
+scenario StartUp {
+  do start_motor(id="M1") expect current(id="M1") > 2.0;
+  choice {
+    if temp.sensor > 60 then { do cool_down(device="FAN1"); }
+    else { do continue(); }
+  };
+  parallel { { do log(msg="branchA"); }, { do log(msg="branchB"); } };
+  wait 5s until motor.rpm >= 1000.0;
+  sync with S_Safety mode hard;
+}
+
+scenario S_Safety {
+  do check_guards(zone="Z1");
+}
+
+state READY {
+  entry: do log(msg="enter READY");
+  on AlarmRaised -> ALERT effect do stop_all();
+  on RpmReached  -> RUN   effect do log(msg="rpm ok");
+}
+
+state ALERT {
+  on ButtonPress -> READY;
+}
+
+state RUN { exit: do log(msg="leave RUN"); }
+
+time Tmotor {
+  reaction = 200ms;
+  period   = 1s;
+  deadline = 500ms;
+  window   = [100ms..2s];
+  sync = with S_Safety mode hard;
+}
+
+causality C1 {
+  ButtonPress -> AlarmRaised;
+  policy ordered;
+}
+
+concurrency CC1 {
+  parallel   { StartUp, S_Safety };
+  alternative{ READY, ALERT };
+}
+
+lifecycle Pump {
+  create: do instantiate(type="Pump");
+  update: do set_speed(value=1200);
+  delete: do dispose();
+  states: INIT, RUN, STOP;
+}
+
+space Lab {
+  zone Z1 shape circle(r=2.5);
+  proximity Pump to Z1 < 1.0 m;
+  visible Operator to Pump;
+  collision Pump with Robot -> do emergency_stop();
+}
+
+nfp PERF {
+  framerate  >= 60;
+  latency    <= 200ms;
+  jitter     <= 20ms;
+  reliability >= 0.999;
+  throughput >= 30 Hz;
+  cpu <= 80 %;
+  memory <= 512 MB;
+  energy <= 5.0 J;
+  qoe >= 4;
+}
+
+property P1 safety: motor.rpm < 2000.0 && sys.state != ALERT;
+
+test StartTest {
+  scenario = StartUp;
+  setup { do init_system(); }
+  assert motor.rpm < 1500.0;
+  teardown { do shutdown(); }
+}
+
+trace TR_001 {
+  requirement = "REQ-42: Alarm innerhalb 200ms";
+  scenario = StartUp;
+  behavior = T_Alarm;
+  test = StartTest;
+  tags: SAFETY, TIMING;
+}
+
+tag StartUp: CRITICAL, DEMO;
+
+simulation SIM1 {
+  tick = 10ms;
+  seed = 1234;
+  runtime = 1m;
+  scheduler = discrete;
+}

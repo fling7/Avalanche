@@ -1,0 +1,305 @@
+// avalanche.tx — textX grammar for AVALANCHE DSL (0.1.5)
+// AVALANCHE = Adaptive Variable Language Architecture for Nonlinear Contextual Handling and Evolution
+
+Model:
+    (package=Package)?
+    imports*=Import
+    elements*=Element
+;
+
+Package: 'package' name=FQN ';' ;
+Import:  'import' importURI=STRING ';' ;
+FQN: ID ('.' ID)* ;
+
+Element:
+      TypeDef | Const | Var | Distribution | Message | Actor | Channel
+    | Event | Trigger | Scenario | State | TimeConstraint | Causality
+    | Concurrency | Lifecycle | Spatial | NFP | Property | Test
+    | TraceLink | Tag | Simulation
+;
+
+// ---------- Named atoms ----------
+Direction: 'in' | 'out' | 'inout' ;
+SyncMode: 'hard' | 'soft' ;
+PolicyKind: 'allof' | 'anyof' | 'ordered' ;
+SchedulerKind: 'discrete' | 'realtime' ;
+RelOp: '==' | '!=' | '>=' | '<=' | '>' | '<' ;
+RelGE: '>=' | '>' ;
+RelLE: '<=' | '<' ;
+DistKind: 'uniform' | 'normal' | 'exp' | 'bernoulli' ;
+PropKind: 'safety' | 'liveness' | 'invariant' | 'response' ;
+ThroughputUnit: 'msg/s' | 'Hz' ;
+MemUnit: 'KB' | 'MB' | 'GB' ;
+EnergyUnit: 'J' | 'kJ' | 'Wh' ;
+DistanceUnit: 'mm' | 'cm' | 'm' | 'km' ;
+
+// ---------------------- Typing & data ----------------------
+TypeDef: 'type' name=ID '=' (EnumType | RecordType | AliasType) ';' ;
+EnumType: 'enum' '{' literals*=ID (',' literals*=ID)* '}' ;
+RecordType: 'record' '{' fields*=Field '}' ;
+AliasType: BaseType ;
+
+BaseType:
+      'int' | 'float' | 'bool' | 'string' | 'duration'
+    | 'vector3' | 'coord' | ID
+;
+
+Field: name=ID ':' ftype=TypeRef ( '=' default=Value )? ';' ;
+
+TypeRef:
+      'int' | 'float' | 'bool' | 'string' | 'duration'
+    | 'vector3' | 'coord' | ID
+;
+
+Const: 'const' name=ID ':' TypeRef '=' value=Value ';' ;
+Var:   'var' name=ID ':' TypeRef ( '=' value=Value )? ';' ;
+
+// ------------------ Actors, messages, channels ------------------
+Message: 'message' name=ID '{' fields*=Field '}' ;
+
+Actor:
+    'actor' name=ID '{'
+        items*=ActorItem
+    '}'
+;
+
+ActorItem: Attr | Port | ActionDef ;
+
+Attr: 'attr' name=ID ':' TypeRef ( '=' default=Value )? ';' ;
+Port: 'port' name=ID ':' TypeRef ( '[' direction=Direction ']' )? ';' ;
+ActionDef: 'action' name=ID '(' (params*=Param (',' params*=Param)*)? ')' ';' ;
+Param: name=ID ':' TypeRef ;
+
+Channel:
+    'channel' name=ID 'from' src=Ref 'to' dst=Ref
+        ( 'type' ':' msg=[Message] )?
+        ( 'latency' '=' lat=Duration )?
+        ( 'capacity' '=' cap=INT )?
+        ';'
+;
+
+// ---------------------- Events & triggers ----------------------
+Event:
+    'event' name=ID
+        ( 'type' type=ID )?
+        ( 'when' condition=Expr )?
+        ( 'prob' '=' prob=FLOAT )?
+        ( 'rate' '=' rate=FLOAT ('Hz'|'/s') )?
+        ( 'arrival' '=' arrival=[Distribution] )?
+        ( 'payload' '{' fields*=Field '}' )?
+        ';'
+;
+
+Trigger:
+    'trigger' name=ID
+        'on' ev=[Event]
+        ( 'guard' guard=Expr )?
+        ( 'do' action=Action )?
+        ';'
+;
+
+// ---------------------- Scenarios & steps ----------------------
+Scenario: 'scenario' name=ID '{' steps*=Step '}' ;
+
+Step: ActionStep | Choice | Parallel | Wait | Sync ;
+
+ExpectSpec: 'expect' ( reaction=Action | expect=Expr ) ;
+
+ActionStep:
+    'do' action=Action
+        ( expect=ExpectSpec )?
+        ( 'else' alt=Action )?
+        ( 'except' ex=Action )?
+        ( 'guard' guard=Expr )?
+        ';'
+;
+
+Choice:
+    'choice' '{' options+=Option '}' ';'
+;
+
+Option:
+    'if' cond=Expr 'then' '{' steps*=Step '}'
+    ( 'else' '{' else_steps*=Step '}' )?
+;
+
+Parallel:
+    'parallel' '{' branches+=Branch (',' branches+=Branch)* '}' ';'
+;
+
+Branch: '{' steps*=Step '}' ;
+Wait:   'wait' duration=Duration ( 'until' cond=Expr )? ';' ;
+Sync:   'sync' 'with' targets+=Ref (',' targets+=Ref)* ( 'mode' mode=SyncMode )? ';' ;
+
+// ---------------------- States / modes (FSM) ----------------------
+State:
+    'state' name=ID
+        ( 'mode' mode=ID )?
+        '{'
+            ( 'entry' ':' entry=Action ';' )?
+            transitions*=Transition
+            ( 'exit'  ':' exit=Action  ';' )?
+        '}'
+;
+
+Transition:
+    'on' ev=[Event]
+        ( 'guard' guard=Expr )?
+        '->' target=[State]
+        ( 'effect' action=Action )?
+        ';'
+;
+
+// ---------------------- Time constraints ----------------------
+TimeConstraint:
+    'time' name=ID '{'
+        ( 'reaction' '=' reaction=Duration ';' )?
+        ( 'duration' '=' dur=Duration ';' )?
+        ( 'period'   '=' period=Duration ';' )?
+        ( 'deadline' '=' deadline=Duration ';' )?
+        ( 'window'   '=' '[' start=Duration '..' end=Duration ']' ';' )?
+        ( 'cron'     '=' cron=STRING ';' )?
+        ( 'sync'     '=' SyncSpec ';' )?
+    '}'
+;
+
+SyncSpec: 'with' refs+=Ref (',' refs+=Ref)* ( 'mode' mode=SyncMode )? ;
+
+// ---------------------- Causality / dependencies ----------------------
+Causality:
+    'causality' name=ID '{'
+        rels+=CausalRel
+        ( 'policy' policy=PolicyKind ';' )?
+    '}'
+;
+
+CausalRel: lhs+=Ref (',' lhs+=Ref)* '->' rhs+=Ref (',' rhs+=Ref)* ';' ;
+
+// ---------------------- Concurrency ----------------------
+Concurrency:
+    'concurrency' name=ID '{'
+        ( 'parallel'   '{' parRefs+=Ref (',' parRefs+=Ref)* '}' ';' )?
+        ( 'alternative' '{' altRefs+=Ref (',' altRefs+=Ref)* '}' ';' )?
+    '}'
+;
+
+// ---------------------- Object lifecycle ----------------------
+Lifecycle:
+    'lifecycle' obj=ID '{'
+        ( 'create' ':' create=Action ';' )?
+        ( 'update' ':' update=Action ';' )?
+        ( 'delete' ':' delete=Action ';' )?
+        ( 'states' ':' states+=ID (',' states+=ID)* ';' )?
+    '}'
+;
+
+// ---------------------- Spatial semantics ----------------------
+Spatial:
+    'space' name=ID '{'
+        items*=SpatialItem
+    '}'
+;
+
+SpatialItem: Zone | SpatialRule ;
+
+Zone:
+    'zone' name=ID
+        ( 'shape' shape=Shape )?
+        ( 'of' owner=ID )?
+        ';'
+;
+
+Shape:
+      'circle' '(' 'r' '=' FLOAT ')'
+    | 'rect'   '(' 'w' '=' FLOAT ',' 'h' '=' FLOAT ')'
+;
+
+SpatialRule:
+      'proximity' a=Ref 'to' b=Ref '<' dist=FLOAT unit=DistanceUnit ';'
+    | 'visible'   a=Ref 'to' b=Ref ';'
+    | 'collision' a=Ref 'with' b=Ref '->' action=Action ';'
+;
+
+// ---------------------- Non-functional properties ----------------------
+NFP:
+    'nfp' name=ID '{'
+        ( 'framerate'   op_fps=RelGE   fps=INT ';' )?
+        ( 'latency'     op_lat=RelLE   lat=Duration ';' )?
+        ( 'jitter'      op_j=RelLE     jit=Duration ';' )?
+        ( 'reliability' op_r=RelGE     rel=FLOAT ';' )?
+        ( 'throughput'  op_tp=RelGE    tp=FLOAT tpu=ThroughputUnit ';' )?
+        ( 'cpu'         op_cpu=RelLE   cpu=FLOAT '%' ';' )?
+        ( 'memory'      op_mem=RelLE   mem=INT mu=MemUnit ';' )?
+        ( 'energy'      op_en=RelLE    en=FLOAT eu=EnergyUnit ';' )?
+        ( 'qoe'         op_qoe=RelGE   qoe=INT ';' )?
+    '}'
+;
+
+// ---------------------- Properties, assertions, tests ----------------------
+Property: 'property' name=ID kind=PropKind ':' Expr ';' ;
+
+Test:
+    'test' name=ID '{'
+        ( 'scenario' '=' scen=[Scenario] ';' )?
+        ( 'setup'    '{' steps*=Step '}' )?
+        ( 'assert' assertions+=Expr ';' )*
+        ( 'teardown' '{' tsteps*=Step '}' )?
+    '}'
+;
+
+// ---------------------- Traceability & tagging ----------------------
+TraceLink:
+    'trace' name=ID '{'
+        'requirement' '=' req=STRING ';'
+        'scenario'    '=' scen=[Scenario] ';'
+        ( 'behavior'  '=' beh=Ref ';' )?
+        ( 'test'      '=' test=Ref ';' )?
+        ( 'tags'      ':' tags+=ID (',' tags+=ID)* ';' )?
+    '}'
+;
+
+Tag: 'tag' target=Ref ':' values+=ID (',' values+=ID)* ';' ;
+
+// ---------------------- Simulation ----------------------
+Simulation:
+    'simulation' name=ID '{'
+        ( 'tick'     '=' tick=Duration ';' )?
+        ( 'seed'     '=' seed=INT ';' )?
+        ( 'runtime'  '=' runtime=Duration ';' )?
+        ( 'scheduler' '=' sched=SchedulerKind ';' )?
+    '}'
+;
+
+// ---------------------- Distributions ----------------------
+Distribution:
+    'dist' name=ID '=' kind=DistKind '(' ( params+=Arg (',' params+=Arg)* )? ')' ';'
+;
+
+// ---------------------- Expressions, actions, values ----------------------
+Action: name=ID '(' ( args+=Arg (',' args+=Arg)* )? ')' ;
+Arg: key=ID '=' value=Value ;
+
+Expr: OrExpr ;
+OrExpr: AndExpr ( '||' AndExpr )* ;
+AndExpr: RelExpr ( '&&' RelExpr )* ;
+RelExpr: AddExpr ( RelOp AddExpr )? ;
+AddExpr: MulExpr ( ('+'|'-') MulExpr )* ;
+MulExpr: Unary ( ('*'|'/') Unary )* ;
+Unary:   ( '!' | '-' )* Primary ;
+
+Primary: Value | Ref | '(' Expr ')' ;
+Ref: ID ('.' ID)* ;
+
+Value: STRING | FLOAT | INT | BOOL | Duration | Array | Range ;
+
+Array: '[' ( items+=Value (',' items+=Value)* )? ']' ;
+Range: '[' start=FLOAT '..' end=FLOAT ']' ;
+
+Duration: INT UNIT ;
+
+BOOL: /true|false/;
+INT: /[0-9]+/;
+FLOAT: /[0-9]+(\.[0-9]+)?/;
+STRING: /"([^"\\]|\\.)*"/;
+UNIT: /ms|s|m|h/;
+ID: /[A-Za-z_][A-Za-z0-9_]*/;

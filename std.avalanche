@@ -1,0 +1,19 @@
+package std;
+
+type Input = record { source: string; }
+
+actor Std {
+  action log(msg: string);
+  action start_motor(id: string);
+  action current(id: string);
+  action cool_down(device: string);
+  action continue();
+  action check_guards(zone: string);
+  action stop_all();
+  action instantiate(type: string);
+  action set_speed(value: float);
+  action dispose();
+  action init_system();
+  action shutdown();
+  action raise_alarm(level: string, code: int);
+}
