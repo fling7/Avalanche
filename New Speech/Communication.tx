@@ -19,9 +19,7 @@ Message:
 ;
 
 Actor:
-    'actor' name=ID
-    (annotations+=Annotation)*
-    '{'
+    'actor' name=ID '{'
         items*=ActorItem
     '}'
 ;
@@ -45,20 +43,19 @@ Attr:
 ;
 
 Port:
-    direction=Direction 'port' name=ID ':' (message=[Message] | type=TypeRef)
-    ('latency' '=' latency=DurationLiteral)?
-    ('capacity' '=' capacity=INT)?
-    ('loss' '=' loss=ProbabilityLiteral)?
+    'port' name=ID ':' type=TypeRef
+        ('[' direction=Direction ']')?
+        ('latency' '=' latency=DurationLiteral)?
+        ('capacity' '=' capacity=INT)?
+        ('loss' '=' loss=ProbabilityLiteral)?
     ';'
 ;
 
 Channel:
-    'channel' name=ID '{'
-        'from' src=[Port]
-        'to'   dst=[Port]
+    'channel' name=ID 'from' src=QualifiedRef 'to' dst=QualifiedRef
         ('type' ':' msg=[Message])?
         ('latency' '=' latency=DurationLiteral)?
         ('capacity' '=' capacity=INT)?
         ('loss' '=' loss=ProbabilityLiteral)?
-    '}'
+        ';'
 ;

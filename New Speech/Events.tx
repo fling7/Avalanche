@@ -15,22 +15,19 @@ extend ActorItemExtension:
 
 Event:
     'event' name=ID
-    ('(' (params+=Param (',' params+=Param)*)? ')')?
-    '{'
-        ('type' ':' eventType=ID (';' | ','))?
-        ('when' condition=Expr ';')?
-        ('probability' '=' prob=ProbabilityLiteral ';')?
-        (('prob' | 'rate') '=' rate=FLOAT (unit='Hz' | unit='/s')? ';')?
-        ('arrival' '=' distribution=[DistDef] ';')?
-        ('payload' ':' payloadType=TypeRef ';')?
-        ('payload' '{' fields*=FieldDef '}' ';')?
-    '}'
+        ('type' eventType=ID)?
+        ('when' condition=Expr)?
+        ('prob' '=' prob=NumberLiteral)?
+        ('rate' '=' rate=NumberLiteral ((rateUnit='Hz') | (rateUnit='/s'))?)?
+        ('arrival' '=' distribution=[DistDef])?
+        ('payload' '{' fields*=FieldDef '}')?
+        ';'
 ;
 
 Trigger:
-    'trigger' name=ID?
-    'on' event=[Event]
-    ('guard' guard=Expr | 'when' guard=Expr)?
-    ('do' action=ActionBlock | 'effect' action=ActionBlock)?
-    ';'
+    'trigger' name=ID
+        'on' event=[Event]
+        ('guard' guard=Expr)?
+        ('do' action=ActionInvocation)?
+        ';'
 ;

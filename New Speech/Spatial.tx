@@ -5,7 +5,8 @@ module Spatial requires Core, Actions, Scenarios;
 ///////////////////////////////////////////////////////
 
 extend ExtensionElementContribution:
-      Zone
+      Space
+    | Zone
     | SpatialRule
 ;
 
@@ -23,11 +24,22 @@ MoveStep:
     ';'
 ;
 
+Space:
+    'space' name=ID '{'
+        items*=SpatialItem
+    '}'
+;
+
+SpatialItem:
+      Zone
+    | SpatialRule
+;
+
 Zone:
     'zone' name=ID
         ( 'shape' shape=Shape )?
         ( 'of' owner=ID )?
-    ( legacyShape=ShapeLegacy )?
+        ( legacyShape=ShapeLegacy )?
     ';'
 ;
 

@@ -52,10 +52,10 @@ NFP:
         ('latency'     op_lat=RelOp   lat=DurationLiteral ';')?
         ('jitter'      op_j=RelOp     jit=DurationLiteral ';')?
         ('reliability' op_r=RelOp     rel=FLOAT ';')?
-        ('throughput'  op_tp=RelOp    tp=FLOAT tpu=ThroughputUnit ';')?
-        ('cpu'         op_cpu=RelOp   cpu=FLOAT '%' ';')?
+        ('throughput'  op_tp=RelOp    tp=NumberLiteral tpu=ThroughputUnit ';')?
+        ('cpu'         op_cpu=RelOp   cpu=NumberLiteral '%' ';')?
         ('memory'      op_mem=RelOp   mem=INT mu=MemUnit ';')?
-        ('energy'      op_en=RelOp    en=FLOAT eu=EnergyUnit ';')?
+        ('energy'      op_en=RelOp    en=NumberLiteral eu=EnergyUnit ';')?
         ('qoe'         op_qoe=RelOp   qoe=INT ';')?
     '}'
 ;

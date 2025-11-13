@@ -1,13 +1,35 @@
 
 ///////////////////////////////////////////////////////
+// 1) Modellrahmen & Annotationen
+///////////////////////////////////////////////////////
+
+Model:
+    (package=Package)?
+    imports*=Import
+    elements*=Element
+;
+
+Package: 'package' name=FQN ';' ;
+Import:  'import' importURI=STRING ('as' alias=ID)? ';' ;
+FQN: ID ('.' ID)* ;
+
+Annotation:
+    '@' name=ID ('(' args+=AnnotationArg (',' args+=AnnotationArg)* ')')?
+;
+
+AnnotationArg:
+    name=ID '=' value=Literal
+;
+
+///////////////////////////////////////////////////////
 // 0) Gemeinsame Tokens & Basistypen
 ///////////////////////////////////////////////////////
 
 ID: /[A-Za-z_][A-Za-z0-9_]*/;
 
-INT: /[0-9]+/;
+FLOAT: /[0-9]+\.[0-9]+/;
 
-FLOAT: /[0-9]+(\.[0-9]+)?/;
+INT: /[0-9]+/;
 
 STRING: /"([^"\\]|\\.)*"/;
 
@@ -23,31 +45,6 @@ AngleUnit: 'deg' | 'rad';
 ThroughputUnit: 'msg/s' | 'Hz';
 MemUnit: 'KB' | 'MB' | 'GB';
 EnergyUnit: 'J' | 'kJ' | 'Wh';
-
-///////////////////////////////////////////////////////
-// 1) Modellrahmen & Annotationen
-///////////////////////////////////////////////////////
-
-Model:
-    'model' name=ID
-    ('package' package=FQN)?
-    imports*=Import
-    '{'
-        elements*=Element
-    '}'
-;
-
-Package: 'package' name=FQN ';' ;
-Import:  'import' importURI=STRING ('as' alias=ID)? ';' ;
-FQN: ID ('.' ID)* ;
-
-Annotation:
-    '@' name=ID ('(' args+=AnnotationArg (',' args+=AnnotationArg)* ')')?
-;
-
-AnnotationArg:
-    name=ID '=' value=Literal
-;
 
 ///////////////////////////////////////////////////////
 // 2) Erweiterbare Element-Liste
@@ -69,8 +66,12 @@ CoreElementContribution:
 
 DistKind: 'uniform' | 'normal' | 'exp' | 'bernoulli';
 
+DistArg:
+    name=ID '=' value=Expr
+;
+
 DistDef:
-    'dist' name=ID '=' (kind=DistKind | kind=ID) '(' (params+=Expr (',' params+=Expr)*)? ')' ';'
+    'dist' name=ID '=' (kind=DistKind | kind=ID) '(' (params+=DistArg (',' params+=DistArg)*)? ')' ';'
 ;
 
 ExtensionElementContribution:
@@ -89,6 +90,7 @@ ExtensionElementContribution:
     | Lifecycle
     | Causality
     | Concurrency
+    | Space
     | Zone
     | SpatialRule
     | PropertyDecl
@@ -133,23 +135,23 @@ TypeRef:
 ;
 
 TypeDef:
-    'type' name=ID '=' target=TypeAlias
+    'type' name=ID '=' target=TypeAlias ';'
 ;
 
 TypeAlias:
-      TypeRef
-    | EnumType
+      EnumType
     | RecordType
+    | TypeRef
 ;
 
 RecordType:
-    'record' name=ID '{'
+    'record' '{'
         fields*=FieldDef
     '}'
 ;
 
 EnumType:
-    'enum' name=ID '{'
+    'enum' '{'
         literals+=ID (',' literals+=ID)*
     '}'
 ;
@@ -175,9 +177,9 @@ ArrayType:
 ///////////////////////////////////////////////////////
 
 Literal:
-      INT
+      STRING
     | FLOAT
-    | STRING
+    | INT
     | BOOL
     | DurationLiteral
     | DistanceLiteral
@@ -189,20 +191,25 @@ Literal:
     | RangeLiteral
 ;
 
+NumberLiteral:
+      FLOAT
+    | INT
+;
+
 DurationLiteral:
-    value=FLOAT unit=DurationUnit
+    value=NumberLiteral unit=DurationUnit
 ;
 
 DistanceLiteral:
-    value=FLOAT unit=DistanceUnit
+    value=NumberLiteral unit=DistanceUnit
 ;
 
 SpeedLiteral:
-    value=FLOAT unit=SpeedUnit
+    value=NumberLiteral unit=SpeedUnit
 ;
 
 AngleLiteral:
-    value=FLOAT unit=AngleUnit
+    value=NumberLiteral unit=AngleUnit
 ;
 
 TimeLiteral:
@@ -210,7 +217,7 @@ TimeLiteral:
 ;
 
 ProbabilityLiteral:
-    FLOAT
+    NumberLiteral
 ;
 
 ArrayLiteral:
@@ -248,7 +255,7 @@ RelExpr:
 ;
 
 RelOp:
-      '==' | '!=' | '<' | '<=' | '>' | '>='
+      '==' | '!=' | '>=' | '>' | '<=' | '<'
 ;
 
 AddExpr:
@@ -288,7 +295,12 @@ MemberAccess:
 ;
 
 CallSuffix:
-    '(' (args+=Expr (',' args+=Expr)*)? ')'
+    '(' (args+=CallArg (',' args+=CallArg)*)? ')'
+;
+
+CallArg:
+      name=ID '=' value=Expr
+    | value=Expr
 ;
 
 IndexSuffix:
@@ -404,9 +416,7 @@ Message:
 ;
 
 Actor:
-    'actor' name=ID
-    (annotations+=Annotation)*
-    '{'
+    'actor' name=ID '{'
         items*=ActorItem
     '}'
 ;
@@ -430,22 +440,21 @@ Attr:
 ;
 
 Port:
-    direction=Direction 'port' name=ID ':' (message=[Message] | type=TypeRef)
-    ('latency' '=' latency=DurationLiteral)?
-    ('capacity' '=' capacity=INT)?
-    ('loss' '=' loss=ProbabilityLiteral)?
+    'port' name=ID ':' type=TypeRef
+        ('[' direction=Direction ']')?
+        ('latency' '=' latency=DurationLiteral)?
+        ('capacity' '=' capacity=INT)?
+        ('loss' '=' loss=ProbabilityLiteral)?
     ';'
 ;
 
 Channel:
-    'channel' name=ID '{'
-        'from' src=[Port]
-        'to'   dst=[Port]
+    'channel' name=ID 'from' src=QualifiedRef 'to' dst=QualifiedRef
         ('type' ':' msg=[Message])?
         ('latency' '=' latency=DurationLiteral)?
         ('capacity' '=' capacity=INT)?
         ('loss' '=' loss=ProbabilityLiteral)?
-    '}'
+        ';'
 ;
 
 
@@ -457,24 +466,21 @@ Channel:
 
 Event:
     'event' name=ID
-    ('(' (params+=Param (',' params+=Param)*)? ')')?
-    '{'
-        ('type' ':' eventType=ID (';' | ','))?
-        ('when' condition=Expr ';')?
-        ('probability' '=' prob=ProbabilityLiteral ';')?
-        (('prob' | 'rate') '=' rate=FLOAT (unit='Hz' | unit='/s')? ';')?
-        ('arrival' '=' distribution=[DistDef] ';')?
-        ('payload' ':' payloadType=TypeRef ';')?
-        ('payload' '{' fields*=FieldDef '}' ';')?
-    '}'
+        ('type' eventType=ID)?
+        ('when' condition=Expr)?
+        ('prob' '=' prob=NumberLiteral)?
+        ('rate' '=' rate=NumberLiteral ((rateUnit='Hz') | (rateUnit='/s'))?)?
+        ('arrival' '=' distribution=[DistDef])?
+        ('payload' '{' fields*=FieldDef '}')?
+        ';'
 ;
 
 Trigger:
-    'trigger' name=ID?
-    'on' event=[Event]
-    ('guard' guard=Expr | 'when' guard=Expr)?
-    ('do' action=ActionBlock | 'effect' action=ActionBlock)?
-    ';'
+    'trigger' name=ID
+        'on' event=[Event]
+        ('guard' guard=Expr)?
+        ('do' action=ActionInvocation)?
+        ';'
 ;
 
 
@@ -657,21 +663,21 @@ Mode:
 
 State:
     'state' name=ID
-    (annotations+=Annotation)*
-    '{'
-        ('entry' (':' | 'do')? entry=ActionBlock ';')?
-        ('exit'  (':' | 'do')? exit=ActionBlock  ';')?
-        (('mode'  stateMode=[Mode]) | ('mode' modeId=ID))?
-        transitions*=Transition
-    '}'
+        ('mode' stateMode=ID)?
+        '{'
+            ('entry' ':' ('do')? entry=ActionInvocation ';')?
+            transitions*=Transition
+            ('exit'  ':' ('do')? exit=ActionInvocation ';')?
+        '}'
+        (';')?
 ;
 
 Transition:
     'on' event=[Event]
-    ('guard' guard=Expr | 'when' guard=Expr)?
-    '->' target=[State]
-    ('effect' ('do')? action=ActionBlock | 'do' action=ActionBlock)?
-    ';'
+        ('guard' guard=Expr)?
+        '->' target=[State]
+        ('effect' ('do')? action=ActionInvocation)?
+        ';'
 ;
 
 StateTransition:
@@ -724,21 +730,12 @@ SyncSpec:
 
 
 Lifecycle:
-      'lifecycle' name=ID '{'
-          ops+=LifecycleOp*
-      '}'
-    | 'lifecycle' obj=ID '{'
-          ('create' ':' ('do')? create=ActionInvocation ';')?
-          ('update' ':' ('do')? update=ActionInvocation ';')?
-          ('delete' ':' ('do')? delete=ActionInvocation ';')?
-          ('states' ':' states+=ID (',' states+=ID)* ';')?
-      '}'
-;
-
-LifecycleOp:
-      CreateOp
-    | UpdateOp
-    | DeleteOp
+    'lifecycle' name=ID '{'
+        ('create' ':' ('do')? create=ActionInvocation ';')?
+        ('update' ':' ('do')? update=ActionInvocation ';')?
+        ('delete' ':' ('do')? delete=ActionInvocation ';')?
+        ('states' ':' states+=ID (',' states+=ID)* ';')?
+    '}'
 ;
 
 
@@ -791,11 +788,22 @@ MoveStep:
     ';'
 ;
 
+Space:
+    'space' name=ID '{'
+        items*=SpatialItem
+    '}'
+;
+
+SpatialItem:
+      Zone
+    | SpatialRule
+;
+
 Zone:
     'zone' name=ID
         ( 'shape' shape=Shape )?
         ( 'of' owner=ID )?
-    ( legacyShape=ShapeLegacy )?
+        ( legacyShape=ShapeLegacy )?
     ';'
 ;
 
@@ -892,10 +900,10 @@ NFP:
         ('latency'     op_lat=RelOp   lat=DurationLiteral ';')?
         ('jitter'      op_j=RelOp     jit=DurationLiteral ';')?
         ('reliability' op_r=RelOp     rel=FLOAT ';')?
-        ('throughput'  op_tp=RelOp    tp=FLOAT tpu=ThroughputUnit ';')?
-        ('cpu'         op_cpu=RelOp   cpu=FLOAT '%' ';')?
+        ('throughput'  op_tp=RelOp    tp=NumberLiteral tpu=ThroughputUnit ';')?
+        ('cpu'         op_cpu=RelOp   cpu=NumberLiteral '%' ';')?
         ('memory'      op_mem=RelOp   mem=INT mu=MemUnit ';')?
-        ('energy'      op_en=RelOp    en=FLOAT eu=EnergyUnit ';')?
+        ('energy'      op_en=RelOp    en=NumberLiteral eu=EnergyUnit ';')?
         ('qoe'         op_qoe=RelOp   qoe=INT ';')?
     '}'
 ;
