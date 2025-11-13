@@ -36,6 +36,20 @@ MovementStep:
     | ParallelStep
     | PassiveSync
     | ExpectObservation
+    | MovementStepExtension
+;
+
+MovementStepExtension:
+    // Module erweitern diesen Punkt um domänenspezifische Bewegungsabläufe.
+;
+
+MovementDetail:
+      Annotation
+    | MovementDetailExtension
+;
+
+MovementDetailExtension:
+    // Optionale Detailmodule (z. B. Körperhaltung) hängen sich hier ein.
 ;
 
 StepDuration:

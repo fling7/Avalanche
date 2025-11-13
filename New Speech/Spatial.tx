@@ -1,4 +1,4 @@
-module Spatial requires Core, Actions;
+module Spatial requires Core, Actions, Scenarios;
 
 ///////////////////////////////////////////////////////
 // Räumliche Semantik
@@ -9,10 +9,24 @@ extend ExtensionElementContribution:
     | SpatialRule
 ;
 
+extend MovementStepExtension:
+      MoveStep
+;
+
+MoveStep:
+    'move'
+    ('entity' entity=QualifiedRef)?
+    'from' origin=QualifiedRef
+    'to' destination=QualifiedRef
+    ('speed' '=' speed=SpeedLiteral)?
+    ('with' detail=MovementDetail)?
+    ';'
+;
+
 Zone:
     'zone' name=ID
-    ( 'shape' shape=Shape )?
-    ( 'of' owner=ID )?
+        ( 'shape' shape=Shape )?
+        ( 'of' owner=ID )?
     ( legacyShape=ShapeLegacy )?
     ';'
 ;
