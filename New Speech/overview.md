@@ -31,12 +31,12 @@ abgebildet sind.
 | `Actions` | Blockstruktur, Anweisungen und Funktionsaufrufe | `ActionBlock`, `ActionStmt`, `Assignment`, `FunctionCall`, `Send`, `Emit`, `Log`, Lebenszyklus-Operationen |
 | `Communication` | Nachrichten, Ports, Akteure, Kanäle | `Message`, `Actor`, `Port`, `Channel`, Attribute |
 | `Events` | Ereignisse und Trigger | `Event`, `Trigger` inkl. Verteilungen und Bedingungen |
-| `Scenarios` | Bewegungs- und Ablauf-Szenarien | `MovementScenario`, `Scenario`, `Step`-Varianten, `Expect` |
+| `Scenarios` | Bewegungs- und Ablauf-Szenarien | `MovementScenario`, `Scenario`, `Step`-Varianten, `Expect`, `MovementStepExtension` |
 | `StateMachines` | Zustands- und Modusmodelle | `StateMachine`, `State`, `Transition`, `Mode` |
 | `Timing` | Zeitliche Randbedingungen | `TimeConstraint`, `Scheduler`, Zeitangaben, Cron |
 | `Causality` | Kausalität und Parallelität | `Causality`, `CausalRel`, `Concurrency`, `ConcurrencyRule` |
 | `Lifecycle` | Objekt-Lebenszyklen | `Lifecycle`, `CreateOp`, `UpdateOp`, `DeleteOp` |
-| `Spatial` | Räumliche Konzepte | `Zone`, `SpatialRule`, `Shape`-Varianten, Proximity |
+| `Spatial` | Räumliche Konzepte | `Zone`, `SpatialRule`, `Shape`-Varianten, Proximity, `MoveStep` |
 | `Quality` | Nicht-funktionale Eigenschaften | `NFR`, `Property`, `NFP` |
 | `Testing` | Tests und Traceability | `Test`, `TraceLink`, `Tag` |
 | `Simulation` | Simulationskonfiguration | `Simulation`, `SchedulerPolicy` |
@@ -45,7 +45,11 @@ Die Module bauen inhaltlich aufeinander auf, verzichten aber auf zyklische Abhä
 So ist es möglich, das `Spatial`-Modul ohne `StateMachines` zu laden oder lediglich `Core`
 und `Actions` für einfache analytische Aufgaben zu nutzen. Die modulare
 Organisation erlaubt es zudem, später neue Domänenmodule (z. B. `Robotics`, `Energy`)
-anzuhängen, ohne den Kern anzupassen.
+anzuhängen, ohne den Kern anzupassen. Über das neue Erweiterungsobjekt
+`MovementStepExtension` lassen sich zusätzliche Bewegungs-Bausteine nachrüsten;
+`Spatial` liefert beispielsweise einen `move … from … to …`-Schritt. Die optionale
+`MovementDetailExtension` erlaubt zukünftigen Modulen, Haltungs- oder Gestik-Informationen
+anzugeben, ohne das Basismodell zu belasten.
 
 ## Dateien
 
