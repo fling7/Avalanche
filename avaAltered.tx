@@ -3,54 +3,47 @@
 ///////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////
-// 0) BASIS (abstrakte "Named"-Superklasse für Refs)
-///////////////////////////////////////////////////////
-interface NamedElement:
-    name=ID
-;
-
-///////////////////////////////////////////////////////
 // 1) TOP-LEVEL: Model, Package, Imports, heterogene Elemente
 ///////////////////////////////////////////////////////
 
-// NEU: vollwertiger Model-Rahmen
 Model:
     'model' name=ID
-    ('package' package=FQN)?                             // NEU
-    (imports+=Import)*                                  // NEU
+    ('package' package=FQN)?
+    imports*=Import
     '{'
-        (elements+=Element)*                            // AUSGEBAUT: heterogene Liste
+        elements*=Element
     '}'
 ;
 
 FQN: ID ('.' ID)*;
 
-// NEU: Import anderer Modelle/Artefakte
 Import:
-    'import' imported=[Model|FQN] ('as' alias=ID)? ';'
+    'import' imported=FQN ('as' alias=ID)? ';'
 ;
 
-// NEU: Alle Top-Level-Elemente
 Element:
       TypeDef | RecordType | EnumType | ConstDecl | VarDecl
     | DistDef | FunctionDef
-    | Actor | Message | Channel                              // NEU: verteilte/agentenbasierte Aspekte
-    | Event | Trigger                                        // NEU: formale Events/Trigger
-    | MovementScenario                                       // AUSGEBAUT: Steps/Control-Flow
-    | StateMachine                                           // AUSGEBAUT: FSM mit Entry/Exit/Effekten
-    | TimeConstraint | Causality | Concurrency               // NEU: Zeit, Kausalität, Parallelität
-    | Lifecycle                                              // NEU: Create/Update/Delete
-    | Zone | SpatialRule                                     // NEU: räumliche Aspekte
-    | PropertyDecl | NFRDecl                                 // NEU: Properties & NFRs
-    | TestCase                                               // NEU: Test-Wrapper mit Setup/Assert/Teardown
-    | SimulationConfig | Scheduler                           // NEU: Simulation & Scheduler
+    | Message | Actor | Channel
+    | Event | Trigger
+    | MovementScenario
+    | StateMachine
+    | TimeConstraint | Causality | Concurrency
+    | Lifecycle
+    | Zone | SpatialRule
+    | PropertyDecl | NFRDecl
+    | TestCase
+    | SimulationConfig | Scheduler
 ;
+
+Direction: 'in' | 'out';
+SyncMode: 'all' | 'any';
+ConcurrencyKind: 'parallel' | 'exclusive' | 'alternative';
 
 ///////////////////////////////////////////////////////
 // 2) ANNOTATIONEN (für NFP, Meta, Traceability)
 ///////////////////////////////////////////////////////
 
-// NEU: universelle Annotationen
 Annotation:
     '@' name=ID ('(' args+=AnnotationArg (',' args+=AnnotationArg)* ')')?
 ;
@@ -63,50 +56,56 @@ AnnotationArg:
 // 3) TYP-SYSTEM (vollständig: Alias, Record, Enum, Arrays)
 ///////////////////////////////////////////////////////
 
-// NEU: Typalias
-TypeDef implements NamedElement:
+TypeDef:
     'type' name=ID '=' target=TypeRef ';'
 ;
 
-// NEU: Records
-RecordType implements NamedElement:
+RecordType:
     'record' name=ID '{'
-        fields+=FieldDef*
+        fields*=FieldDef
     '}'
 ;
 
 FieldDef:
-    name=ID ':' type=TypeRef ('=' default=Expr)? ';'       // NEU: Default-Werte
+    name=ID ':' type=TypeRef ('=' default=Expr)? ';'
 ;
 
-// NEU: Enums
-EnumType implements NamedElement:
+EnumType:
     'enum' name=ID '{'
         literals+=ID (',' literals+=ID)*
     '}'
 ;
 
-// AUSGEBAUT: Arrays & FQNs
 TypeRef:
       BasicType
     | ArrayType
-    | ref=[TypeDef|RecordType|EnumType|FQN]
+    | typedef=[TypeDef]
+    | record=[RecordType]
+    | enum=[EnumType]
 ;
 
 BasicType:
-    name=('int'|'float'|'bool'|'string'|'duration'|'distance'|'speed'|'angle'|'time'|'probability')
+      'int'
+    | 'float'
+    | 'bool'
+    | 'string'
+    | 'duration'
+    | 'distance'
+    | 'speed'
+    | 'angle'
+    | 'time'
+    | 'probability'
 ;
 
 ArrayType:
     base=TypeRef '[]'
 ;
 
-// NEU: Konstanten & Variablen (auch top-level)
-ConstDecl implements NamedElement:
+ConstDecl:
     'const' name=ID ':' type=TypeRef '=' value=Expr ';'
 ;
 
-VarDecl implements NamedElement:
+VarDecl:
     'var' name=ID ':' type=TypeRef ('=' init=Expr)? ';'
 ;
 
@@ -114,8 +113,7 @@ VarDecl implements NamedElement:
 // 4) FUNKTIONEN / AKTIONEN (wiederverwendbare Aktionen)
 ///////////////////////////////////////////////////////
 
-// NEU: Benutzerdefinierte Funktionen/Aktionen
-FunctionDef implements NamedElement:
+FunctionDef:
     'function' name=ID '(' (params+=Param (',' params+=Param)*)? ')'
     (':' returnType=TypeRef)?
     (annotations+=Annotation)*
@@ -129,45 +127,49 @@ Param:
 ///////////////////////////////////////////////////////
 // 5) DISTRIBUTIONEN (dist name = kind(...))
 ///////////////////////////////////////////////////////
-DistDef implements NamedElement:
+
+DistDef:
     'dist' name=ID '=' kind=ID '(' (params+=Expr (',' params+=Expr)*)? ')' ';'
-    // z.B.: dist netDelay = normal(µ=20ms, σ=5ms);
 ;
 
 ///////////////////////////////////////////////////////
 // 6) KOMMUNIKATION: Actor, Message, Channel, Ports
 ///////////////////////////////////////////////////////
 
-// NEU: Nachrichtentypen (eigenständig, nicht nur Record)
-Message implements NamedElement:
+Message:
     'message' name=ID '{'
-        (fields+=FieldDef)*
+        fields*=FieldDef
     '}'
 ;
 
-// NEU: Actor mit Ports, Actions, optionalem Verhalten
-Actor implements NamedElement:
+Actor:
     'actor' name=ID
     (annotations+=Annotation)*
     '{'
-        (ports+=Port)*
-        (vars+=VarDecl | consts+=ConstDecl | functions+=FunctionDef | triggers+=Trigger)*
+        items*=ActorItem
     '}'
 ;
 
-Port implements NamedElement:
-    ('in'|'out') 'port' name=ID ':' message=[Message|ID]
-    ('latency' '=' latency=DurationLiteral)?               // NEU: Latenz
-    ('capacity' '=' capacity=INT)?                         // NEU: Kapazität
-    ('loss' '=' loss=ProbabilityLiteral)?                  // NEU: Verlustwahrscheinlichkeit
+ActorItem:
+      Port
+    | VarDecl
+    | ConstDecl
+    | FunctionDef
+    | Trigger
+;
+
+Port:
+    direction=Direction 'port' name=ID ':' message=[Message]
+    ('latency' '=' latency=DurationLiteral)?
+    ('capacity' '=' capacity=INT)?
+    ('loss' '=' loss=ProbabilityLiteral)?
     ';'
 ;
 
-// NEU: Channels verbinden Ports
-Channel implements NamedElement:
+Channel:
     'channel' name=ID '{'
-        'from' src=[Port|FQN]
-        'to'   dst=[Port|FQN]
+        'from' src=[Port]
+        'to'   dst=[Port]
         ('latency' '=' latency=DurationLiteral)?
         ('capacity' '=' capacity=INT)?
         ('loss' '=' loss=ProbabilityLiteral)?
@@ -178,22 +180,20 @@ Channel implements NamedElement:
 // 7) EVENTS & TRIGGER (mit Guards, Payload, Verteilungen)
 ///////////////////////////////////////////////////////
 
-// NEU: Formale Events, an die Trigger gekoppelt werden
-Event implements NamedElement:
+Event:
     'event' name=ID
     '(' (params+=Param (',' params+=Param)*)? ')'
     '{'
-        ('type' ':' eventType=ID ';')?                     // frei (z.B. "external", "timer", "sensor")
-        ('probability' '=' prob=ProbabilityLiteral ';')?   // optional
-        ('arrival' '=' dist=[DistDef|ID] ';')?             // Ankunftsverteilung
-        ('payload' ':' payloadType=TypeRef ';')?           // falls param. Payload gewünscht
+        ('type' ':' eventType=ID ';')?
+        ('probability' '=' prob=ProbabilityLiteral ';')?
+        ('arrival' '=' dist=[DistDef] ';')?
+        ('payload' ':' payloadType=TypeRef ';')?
     '}'
 ;
 
-// AUSGEBAUT: Trigger strikt an Events, mit Guard+Action
-Trigger implements NamedElement:
+Trigger:
     'trigger' name=ID?
-    'on' event=[Event|ID]
+    'on' event=[Event]
     ('when' guard=Expr)?
     'do' action=ActionBlock
 ;
@@ -201,16 +201,21 @@ Trigger implements NamedElement:
 ///////////////////////////////////////////////////////
 // 8) SZENARIEN & STEPS (Action, Choice, Parallel, Wait, Sync, Expect)
 ///////////////////////////////////////////////////////
-MovementScenario implements NamedElement:
+
+MovementScenario:
     'scenario' name=ID
     (annotations+=Annotation)*
     '{'
-        (locals+=VarDecl | locals+=ConstDecl)*
-        (steps+=Step)*
+        locals*=ScenarioLocal
+        steps*=Step
     '}'
 ;
 
-// AUSGEBAUT: zusätzliche Step-Formen
+ScenarioLocal:
+      VarDecl
+    | ConstDecl
+;
+
 Step:
       StepDuration
     | StepDistance
@@ -218,40 +223,35 @@ Step:
     | WaitStep
     | ChoiceStep
     | ParallelStep
-    | SyncStep             // NEU
-    | ExpectStep           // NEU (Erwartungen/Assertions im Ablauf)
+    | SyncStep
+    | ExpectStep
 ;
 
-// ALT (aus eurer Grammatik, syntaktisch leicht harmonisiert)
-StepDuration implements NamedElement:
+StepDuration:
     'stepDuration' name=ID?
     'for' duration=DurationLiteral
-    ('using' distribution=[DistDef|ID])?
+    ('using' distribution=[DistDef])?
     ';'
 ;
 
-// ALT
-StepDistance implements NamedElement:
+StepDistance:
     'stepDistance' name=ID?
     'distance' distance=DistanceLiteral
-    ('using' distribution=[DistDef|ID])?
+    ('using' distribution=[DistDef])?
     ';'
 ;
 
-// NEU: generischer Aktionsschritt
-ActionStep implements NamedElement:
+ActionStep:
     'step' name=ID 'do' action=ActionBlock
 ;
 
-// NEU: warten (zeitlich oder bis Event)
-WaitStep implements NamedElement:
+WaitStep:
     'wait'
-    (('for' duration=DurationLiteral) | ('until' event=[Event|ID]))
+    (('for' duration=DurationLiteral) | ('until' event=[Event]))
     ';'
 ;
 
-// NEU: Verzweigung
-ChoiceStep implements NamedElement:
+ChoiceStep:
     'choice' name=ID? '{'
         alternatives+=ChoiceAlt+
     '}'
@@ -261,65 +261,66 @@ ChoiceAlt:
     ('when' guard=Expr)? ':' steps+=Step+
 ;
 
-// NEU: Parallelität
-ParallelStep implements NamedElement:
+ParallelStep:
     'parallel' name=ID? '{'
         branches+=ParallelBranch+
     '}'
 ;
 
-ParallelBranch implements NamedElement:
+ParallelBranch:
     'branch' name=ID '{'
         steps+=Step+
     '}'
 ;
 
-// NEU: explizite Synchronisations‑Barriere
 SyncStep:
-    'sync' ('all' | 'any')? ';'
+    'sync' (mode=SyncMode)? ';'
 ;
 
-// NEU: Erwartung/Assertion innerhalb eines Szenarios
-ExpectStep implements NamedElement:
+ExpectStep:
     'expect' ('within' window=DurationLiteral)? condition=Expr ';'
 ;
 
 ///////////////////////////////////////////////////////
 // 9) FSM: StateMachine, States (mit Modi), Transitions (Guards/Effekte)
 ///////////////////////////////////////////////////////
-StateMachine implements NamedElement:
+
+StateMachine:
     'statemachine' name=ID
     (annotations+=Annotation)*
     '{'
-        (modes+=Mode)*                                     // NEU: optionale Modi
-        (states+=State)+
-        (transitions+=StateTransition)*
-        (locals+=VarDecl | locals+=ConstDecl | triggers+=Trigger)*
+        items*=StateMachineItem
     '}'
 ;
 
-// NEU: Betriebsmodi (leichtgewichtig)
-Mode implements NamedElement:
+StateMachineItem:
+      Mode
+    | State
+    | StateTransition
+    | VarDecl
+    | ConstDecl
+    | Trigger
+;
+
+Mode:
     'mode' name=ID ';'
 ;
 
-// AUSGEBAUT: Entry/Exit-Aktionen
-State implements NamedElement:
+State:
     'state' name=ID
     (annotations+=Annotation)*
     '{'
         ('entry' entry=ActionBlock)?
         ('exit'  exit=ActionBlock)?
-        ('mode'  stateMode=[Mode|ID])?                     // optionaler Modus
+        ('mode'  stateMode=[Mode])?
     '}'
 ;
 
-// AUSGEBAUT: Guard, Effekt, optionales Event
-StateTransition implements NamedElement:
+StateTransition:
     'transition'
-    'from' source=[State|ID]
-    'to'   target=[State|ID]
-    ('on' event=[Event|ID])?
+    'from' source=[State]
+    'to'   target=[State]
+    ('on' event=[Event])?
     ('when' guard=Expr)?
     ('do' effect=ActionBlock)?
     ';'
@@ -328,9 +329,9 @@ StateTransition implements NamedElement:
 ///////////////////////////////////////////////////////
 // 10) ZEITLICHE CONSTRAINTS: Deadline, Period, Window, Cron
 ///////////////////////////////////////////////////////
-TimeConstraint implements NamedElement:
-    'timeConstraint' name=ID
-    '{'
+
+TimeConstraint:
+    'timeConstraint' name=ID '{'
         ('deadline'     '<=' max=DurationLiteral        ';')?
         ('period'       '='  period=DurationLiteral     ';')?
         ('responseTime' '<=' response=DurationLiteral   ';')?
@@ -343,36 +344,33 @@ TimeConstraint implements NamedElement:
 // 11) KAUSALITÄT & PARALLELITÄT (Beziehungen auf Element-Ebene)
 ///////////////////////////////////////////////////////
 
-// NEU: kausale Beziehungen zwischen Elementen (Steps, States, Events, Actions)
-Causality implements NamedElement:
+Causality:
     'causality' name=ID '{'
         relations+=CausalRel+
     '}'
 ;
 
 CausalRel:
-    left=[NamedElement|FQN] '->' right=[NamedElement|FQN] ('label' lbl=STRING)? ';'
+    left=FQN '->' right=FQN ('label' lbl=STRING)? ';'
 ;
 
-// NEU: Parallelitäts- und Exklusivitätsdefinitionen
-Concurrency implements NamedElement:
+Concurrency:
     'concurrency' name=ID '{'
-        (rules+=ConcurrencyRule)*
+        rules+=ConcurrencyRule*
     '}'
 ;
 
 ConcurrencyRule:
-      'parallel'  a=[NamedElement|FQN] ',' b=[NamedElement|FQN] ';'
-    | 'exclusive' a=[NamedElement|FQN] ',' b=[NamedElement|FQN] ';'
-    | 'alternative' a=[NamedElement|FQN] ',' b=[NamedElement|FQN] ';'
+    kind=ConcurrencyKind a=FQN ',' b=FQN ';'
 ;
 
 ///////////////////////////////////////////////////////
 // 12) LIFECYCLE (Create/Update/Delete) auf Objekttypen
 ///////////////////////////////////////////////////////
-Lifecycle implements NamedElement:
+
+Lifecycle:
     'lifecycle' name=ID '{'
-        (ops+=LifecycleOp)*
+        ops+=LifecycleOp*
     '}'
 ;
 
@@ -399,13 +397,14 @@ DeleteOp:
 ;
 
 QualifiedRef:
-    base=[NamedElement|FQN] ('.' member=ID)*
+    base=FQN ('.' member=ID)*
 ;
 
 ///////////////////////////////////////////////////////
 // 13) RÄUMLICHES MODELL: Zonen, Formen, Proximity, Kollision
 ///////////////////////////////////////////////////////
-Zone implements NamedElement:
+
+Zone:
     'zone' name=ID 'shape' shape=ShapeDef ';'
 ;
 
@@ -431,8 +430,7 @@ Point:
     '(' x=FLOAT ',' y=FLOAT ')'
 ;
 
-// NEU: räumliche Regeln
-SpatialRule implements NamedElement:
+SpatialRule:
     'spatialRule' name=ID
     'when' condition=Expr
     'ensure' spatialConstraint=SpatialConstraint
@@ -440,23 +438,21 @@ SpatialRule implements NamedElement:
 ;
 
 SpatialConstraint:
-      'inside' zone=[Zone|ID]
-    | 'outside' zone=[Zone|ID]
+      'inside' zone=[Zone]
+    | 'outside' zone=[Zone]
     | 'noCollision'
-    | 'proximity' '(' ref=[NamedElement|FQN] ',' max=DistanceLiteral ')'  // NEU: Proximity
+    | 'proximity' '(' ref=FQN ',' max=DistanceLiteral ')'
 ;
 
 ///////////////////////////////////////////////////////
 // 14) PROPERTIES & NFRs (Safety/Liveness, Metriken, Traceability)
 ///////////////////////////////////////////////////////
 
-// NEU: temporale Properties (leichtgewichtig)
-PropertyDecl implements NamedElement:
+PropertyDecl:
     'property' name=ID
     (annotations+=Annotation)*
     '{'
-        // Beispiele: ALWAYS p, EVENTUALLY q, WITHIN T: r
-        (spec=TemporalSpec) ';'
+        spec=TemporalSpec ';'
     '}'
 ;
 
@@ -467,66 +463,85 @@ TemporalSpec:
     | 'LEADS_TO' a=Expr '->' b=Expr ('WITHIN' bound=DurationLiteral)?
 ;
 
-// NEU: Nichtfunktionale Anforderungen (z.B. Latenz, Durchsatz)
-NFRDecl implements NamedElement:
+NFRDecl:
     'nfr' name=ID
     (annotations+=Annotation)*
     '{'
-        'metric' ':' metric=ID ';'             // z.B. latency, throughput, energy
-        'target' ':' comparator=CompOp value=Expr ';' // <= 100ms, >= 30fps, etc.
-        ('scope' ':' scope=ID ';')?             // optional: z.B. pro Scenario/Actor/Port
+        'metric' ':' metric=ID ';'
+        'target' ':' comparator=CompOp value=Expr ';'
+        ('scope' ':' scope=ID ';')?
     '}'
 ;
 
-CompOp: ('<='|'>='|'=='|'<'|'>'|'!=');
+CompOp:
+      '<='
+    | '>='
+    | '=='
+    | '<'
+    | '>'
+    | '!='
+;
 
 ///////////////////////////////////////////////////////
 // 15) TESTS (Setup/Run/Assert/Teardown + Traceability)
 ///////////////////////////////////////////////////////
-TestCase implements NamedElement:
+
+TestCase:
     'test' name=ID
     (annotations+=Annotation)*
     '{'
-        ('trace' ':' reqId=STRING ';')?          // NEU: Traceability
+        ('trace' ':' reqId=STRING ';')?
         ('setup' setup=ActionBlock)?
-        'run' target=(scenario=[MovementScenario|ID] | sm=[StateMachine|ID])
+        'run' target=TestTarget
         ('assert' assertExpr=Expr)?
         ('teardown' teardown=ActionBlock)?
     '}'
 ;
 
+TestTarget:
+      scenario=[MovementScenario]
+    | statemachine=[StateMachine]
+;
+
 ///////////////////////////////////////////////////////
 // 16) SIMULATION & SCHEDULER
 ///////////////////////////////////////////////////////
-SimulationConfig implements NamedElement:
-    'simulation' name=ID
-    '{'
+
+SimulationConfig:
+    'simulation' name=ID '{'
         ('tick'    '=' tick=DurationLiteral    ';')?
         ('seed'    '=' seed=INT                ';')?
         ('runtime' '=' runtime=DurationLiteral ';')?
-        ('scheduler' '=' sched=[Scheduler|ID]  ';')?
+        ('scheduler' '=' sched=[Scheduler]     ';')?
     '}'
 ;
 
-// NEU: Scheduler-Konfigurationen
-Scheduler implements NamedElement:
+Scheduler:
     'scheduler' name=ID '{'
-        'policy' '=' policy=('fifo'|'roundrobin'|'edf'|'llf') ';'
-        ('quantum' '=' quantum=DurationLiteral ';')?     // z.B. für RR
+        'policy' '=' policy=SchedulerPolicy ';'
+        ('quantum' '=' quantum=DurationLiteral ';')?
         ('priority' '=' priority=INT ';')?
     '}'
+;
+
+SchedulerPolicy:
+      'fifo'
+    | 'roundrobin'
+    | 'edf'
+    | 'llf'
 ;
 
 ///////////////////////////////////////////////////////
 // 17) ACTIONS & STATEMENTS (inkl. Senden/Emit/Assign/Create/Log)
 ///////////////////////////////////////////////////////
+
 ActionBlock:
-    '{' (stmts+=ActionStmt)* '}'
+    '{' stmts+=ActionStmt* '}'
 ;
 
 ActionStmt:
       Assignment ';'
-    | ActionCall ';'
+    | FunctionCall ';'
     | EmitAction ';'
     | SendAction ';'
     | LogAction ';'
@@ -539,17 +554,18 @@ Assignment:
     target=QualifiedRef '=' value=Expr
 ;
 
-ActionCall:
-    name=[FunctionDef|FQN] '(' (args+=Expr (',' args+=Expr)*)? ')'
+FunctionCall:
+    'call' function=[FunctionDef] '(' (args+=Expr (',' args+=Expr)*)? ')'
 ;
 
 EmitAction:
-    'emit' event=[Event|ID] '(' (args+=Expr (',' args+=Expr)*)? ')'
+    'emit' event=[Event] '(' (args+=Expr (',' args+=Expr)*)? ')'
 ;
 
 SendAction:
-    'send' msg=Expr 'via' ch=[Channel|ID]
-    ('delay' '=' delay=DurationLiteral)? ('dist' '=' dist=[DistDef|ID])?
+    'send' msg=Expr 'via' channel=[Channel]
+    ('delay' '=' delay=DurationLiteral)?
+    ('dist'  '=' dist=[DistDef])?
 ;
 
 LogAction:
@@ -559,6 +575,7 @@ LogAction:
 ///////////////////////////////////////////////////////
 // 18) AUSDRUCKSSYSTEM (vollwertig + Arrays, Ranges, Calls, Member)
 ///////////////////////////////////////////////////////
+
 Expr:
     OrExpr
 ;
@@ -572,24 +589,47 @@ AndExpr:
 ;
 
 RelExpr:
-    AddExpr (opRel=('=='|'!='|'<'|'<='|'>'|'>=') AddExpr)?
+    AddExpr (op=RelOp right=AddExpr)?
+;
+
+RelOp:
+      '=='
+    | '!='
+    | '<'
+    | '<='
+    | '>'
+    | '>='
 ;
 
 AddExpr:
-    MulExpr (opAdd=('+'|'-') MulExpr)*
+    left=MulExpr (ops+=AddOp rights+=MulExpr)*
+;
+
+AddOp:
+      '+'
+    | '-'
 ;
 
 MulExpr:
-    UnaryExpr (opMul=('*'|'/') UnaryExpr)*
+    left=UnaryExpr (ops+=MulOp rights+=UnaryExpr)*
+;
+
+MulOp:
+      '*'
+    | '/'
 ;
 
 UnaryExpr:
-      ('!'|'-') UnaryExpr
-    | PostfixExpr
+    (ops+=UnaryOp)* operand=PostfixExpr
+;
+
+UnaryOp:
+      '!'
+    | '-'
 ;
 
 PostfixExpr:
-    PrimaryExpr (postfix+=PostfixOp)*
+    primary=PrimaryExpr (postfix+=PostfixOp)*
 ;
 
 PostfixOp:
@@ -629,6 +669,7 @@ RangeLiteral:
 ///////////////////////////////////////////////////////
 // 19) LITERALE (Zahlen, Strings, Einheiten, Zeit, Cron, Probability)
 ///////////////////////////////////////////////////////
+
 Literal:
       INT
     | FLOAT
@@ -644,42 +685,35 @@ Literal:
 ;
 
 DurationLiteral:
-    // Beispiele: 50ms, 2s, 5min, 1h
-    value=FLOAT unit=('ns'|'us'|'ms'|'s'|'min'|'h')
+    value=FLOAT unit=DurationUnit
 ;
 
 DistanceLiteral:
-    // Beispiele: 10cm, 2.5m, 1km
-    value=FLOAT unit=('mm'|'cm'|'m'|'km')
+    value=FLOAT unit=DistanceUnit
 ;
 
 SpeedLiteral:
-    // Beispiele: 10mps, 50kmph
-    value=FLOAT unit=('mps'|'kmph')
+    value=FLOAT unit=SpeedUnit
 ;
 
 AngleLiteral:
-    // Beispiele: 90deg, 1.57rad
-    value=FLOAT unit=('deg'|'rad')
+    value=FLOAT unit=AngleUnit
 ;
 
 TimeLiteral:
-    // vereinfachte Form, kann bei Bedarf erweitert werden (ISO-Zeit als STRING ist Alternative)
-    'T' hour=INT ':' minute=INT (':' second=INT)?          // z.B. T13:45[:30]
+    'T' hour=INT ':' minute=INT (':' second=INT)?
 ;
 
 ProbabilityLiteral:
-    FLOAT                                                  // 0.0 .. 1.0 erwartet
+    FLOAT
 ;
 
 CronLiteral:
-    STRING                                                 // "*/5 * * * *" etc.
+    STRING
 ;
 
-///////////////////////////////////////////////////////
-// 20) TERMINALS (ggf. im Projekt anpassen)
-///////////////////////////////////////////////////////
-terminal ID: /[a-zA-Z_][a-zA-Z0-9_]*/;
-terminal INT: /[0-9]+/;
-terminal FLOAT: /[0-9]+(\.[0-9]+)?/;
-terminal STRING: /"([^"\\]|\\.)*"/;
+DurationUnit: 'ns' | 'us' | 'ms' | 's' | 'min' | 'h';
+DistanceUnit: 'mm' | 'cm' | 'm' | 'km';
+SpeedUnit: 'mps' | 'kmph';
+AngleUnit: 'deg' | 'rad';
+
