@@ -32,21 +32,21 @@ Mode:
 
 State:
     'state' name=ID
-    (annotations+=Annotation)*
-    '{'
-        ('entry' (':' | 'do')? entry=ActionBlock ';')?
-        ('exit'  (':' | 'do')? exit=ActionBlock  ';')?
-        (('mode'  stateMode=[Mode]) | ('mode' modeId=ID))?
-        transitions*=Transition
-    '}'
+        ('mode' stateMode=ID)?
+        '{'
+            ('entry' ':' ('do')? entry=ActionInvocation ';')?
+            transitions*=Transition
+            ('exit'  ':' ('do')? exit=ActionInvocation ';')?
+        '}'
+        (';')?
 ;
 
 Transition:
     'on' event=[Event]
-    ('guard' guard=Expr | 'when' guard=Expr)?
-    '->' target=[State]
-    ('effect' ('do')? action=ActionBlock | 'do' action=ActionBlock)?
-    ';'
+        ('guard' guard=Expr)?
+        '->' target=[State]
+        ('effect' ('do')? action=ActionInvocation)?
+        ';'
 ;
 
 StateTransition:

@@ -1,35 +1,13 @@
 module Core;
 
 ///////////////////////////////////////////////////////
-// 0) Gemeinsame Tokens & Basistypen
-///////////////////////////////////////////////////////
-
-terminal ID: /[A-Za-z_][A-Za-z0-9_]*/;
-terminal INT: /[0-9]+/;
-terminal FLOAT: /[0-9]+(\.[0-9]+)?/;
-terminal STRING: /"([^"\\]|\\.)*"/;
-terminal BOOL: /true|false/;
-terminal UNIT: /ms|s|m|h/;
-
-DurationUnit: 'ns' | 'us' | 'ms' | 's' | 'min' | 'h';
-DistanceUnit: 'mm' | 'cm' | 'm' | 'km';
-SpeedUnit: 'mps' | 'kmph';
-AngleUnit: 'deg' | 'rad';
-ThroughputUnit: 'msg/s' | 'Hz';
-MemUnit: 'KB' | 'MB' | 'GB';
-EnergyUnit: 'J' | 'kJ' | 'Wh';
-
-///////////////////////////////////////////////////////
 // 1) Modellrahmen & Annotationen
 ///////////////////////////////////////////////////////
 
 Model:
-    'model' name=ID
-    ('package' package=FQN)?
+    (package=Package)?
     imports*=Import
-    '{'
-        elements*=Element
-    '}'
+    elements*=Element
 ;
 
 Package: 'package' name=FQN ';' ;
@@ -43,6 +21,25 @@ Annotation:
 AnnotationArg:
     name=ID '=' value=Literal
 ;
+
+///////////////////////////////////////////////////////
+// 0) Gemeinsame Tokens & Basistypen
+///////////////////////////////////////////////////////
+
+terminal ID: /[A-Za-z_][A-Za-z0-9_]*/;
+terminal FLOAT: /[0-9]+\.[0-9]+/;
+terminal INT: /[0-9]+/;
+terminal STRING: /"([^"\\]|\\.)*"/;
+terminal BOOL: /true|false/;
+terminal UNIT: /ms|s|m|h/;
+
+DurationUnit: 'ns' | 'us' | 'ms' | 's' | 'min' | 'h';
+DistanceUnit: 'mm' | 'cm' | 'm' | 'km';
+SpeedUnit: 'mps' | 'kmph';
+AngleUnit: 'deg' | 'rad';
+ThroughputUnit: 'msg/s' | 'Hz';
+MemUnit: 'KB' | 'MB' | 'GB';
+EnergyUnit: 'J' | 'kJ' | 'Wh';
 
 ///////////////////////////////////////////////////////
 // 2) Erweiterbare Element-Liste
@@ -64,8 +61,12 @@ CoreElementContribution:
 
 DistKind: 'uniform' | 'normal' | 'exp' | 'bernoulli';
 
+DistArg:
+    name=ID '=' value=Expr
+;
+
 DistDef:
-    'dist' name=ID '=' (kind=DistKind | kind=ID) '(' (params+=Expr (',' params+=Expr)*)? ')' ';'
+    'dist' name=ID '=' (kind=DistKind | kind=ID) '(' (params+=DistArg (',' params+=DistArg)*)? ')' ';'
 ;
 
 ExtensionElementContribution:
@@ -101,23 +102,23 @@ TypeRef:
 ;
 
 TypeDef:
-    'type' name=ID '=' target=TypeAlias
+    'type' name=ID '=' target=TypeAlias ';'
 ;
 
 TypeAlias:
-      TypeRef
-    | EnumType
+      EnumType
     | RecordType
+    | TypeRef
 ;
 
 RecordType:
-    'record' name=ID '{'
+    'record' '{'
         fields*=FieldDef
     '}'
 ;
 
 EnumType:
-    'enum' name=ID '{'
+    'enum' '{'
         literals+=ID (',' literals+=ID)*
     '}'
 ;
@@ -143,9 +144,9 @@ ArrayType:
 ///////////////////////////////////////////////////////
 
 Literal:
-      INT
+      STRING
     | FLOAT
-    | STRING
+    | INT
     | BOOL
     | DurationLiteral
     | DistanceLiteral
@@ -157,20 +158,25 @@ Literal:
     | RangeLiteral
 ;
 
+NumberLiteral:
+      FLOAT
+    | INT
+;
+
 DurationLiteral:
-    value=FLOAT unit=DurationUnit
+    value=NumberLiteral unit=DurationUnit
 ;
 
 DistanceLiteral:
-    value=FLOAT unit=DistanceUnit
+    value=NumberLiteral unit=DistanceUnit
 ;
 
 SpeedLiteral:
-    value=FLOAT unit=SpeedUnit
+    value=NumberLiteral unit=SpeedUnit
 ;
 
 AngleLiteral:
-    value=FLOAT unit=AngleUnit
+    value=NumberLiteral unit=AngleUnit
 ;
 
 TimeLiteral:
@@ -178,7 +184,7 @@ TimeLiteral:
 ;
 
 ProbabilityLiteral:
-    FLOAT
+    NumberLiteral
 ;
 
 ArrayLiteral:
@@ -216,7 +222,7 @@ RelExpr:
 ;
 
 RelOp:
-      '==' | '!=' | '<' | '<=' | '>' | '>='
+      '==' | '!=' | '>=' | '>' | '<=' | '<'
 ;
 
 AddExpr:
@@ -256,7 +262,12 @@ MemberAccess:
 ;
 
 CallSuffix:
-    '(' (args+=Expr (',' args+=Expr)*)? ')'
+    '(' (args+=CallArg (',' args+=CallArg)*)? ')'
+;
+
+CallArg:
+      name=ID '=' value=Expr
+    | value=Expr
 ;
 
 IndexSuffix:
