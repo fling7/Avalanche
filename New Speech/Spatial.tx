@@ -1,0 +1,64 @@
+module Spatial requires Core, Actions;
+
+///////////////////////////////////////////////////////
+// Räumliche Semantik
+///////////////////////////////////////////////////////
+
+extend ExtensionElementContribution:
+      Zone
+    | SpatialRule
+;
+
+Zone:
+    'zone' name=ID
+    ( 'shape' shape=Shape )?
+    ( 'of' owner=ID )?
+    ( legacyShape=ShapeLegacy )?
+    ';'
+;
+
+Shape:
+      'circle' '(' 'r' '=' FLOAT ')'
+    | 'rect'   '(' 'w' '=' FLOAT ',' 'h' '=' FLOAT ')'
+    | 'polygon' '(' points+=Point (',' points+=Point)* ')'
+;
+
+ShapeLegacy:
+      'shape' legacy=ShapeDef
+;
+
+ShapeDef:
+      CircleShape
+    | RectShape
+    | PolygonShape
+;
+
+CircleShape:
+    'circle' '(' cx=FLOAT ',' cy=FLOAT ',' radius=FLOAT ')'
+;
+
+RectShape:
+    'rect' '(' x=FLOAT ',' y=FLOAT ',' width=FLOAT ',' height=FLOAT ')'
+;
+
+PolygonShape:
+    'polygon' '(' points+=Point (',' points+=Point)* ')'
+;
+
+Point:
+    '(' x=FLOAT ',' y=FLOAT ')'
+;
+
+SpatialRule:
+      'spatialRule' name=ID 'when' condition=Expr 'ensure' spatialConstraint=SpatialConstraint ';'
+    | 'proximity' a=QualifiedRef 'to' b=QualifiedRef '<' dist=FLOAT unit=DistanceUnit ';'
+    | 'visible'   a=QualifiedRef 'to' b=QualifiedRef ';'
+    | 'collision' a=QualifiedRef 'with' b=QualifiedRef '->' ('do')? action=ActionInvocation ';'
+;
+
+SpatialConstraint:
+      'inside' zone=[Zone]
+    | 'outside' zone=[Zone]
+    | 'noCollision'
+    | 'proximity' '(' ref=QualifiedRef ',' max=DistanceLiteral ')'
+;

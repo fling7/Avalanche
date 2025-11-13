@@ -1,0 +1,36 @@
+module Events requires Core, Actions;
+
+///////////////////////////////////////////////////////
+// Ereignisse und Reaktionen
+///////////////////////////////////////////////////////
+
+extend ExtensionElementContribution:
+      Event
+    | Trigger
+;
+
+extend ActorItemExtension:
+      Trigger
+;
+
+Event:
+    'event' name=ID
+    ('(' (params+=Param (',' params+=Param)*)? ')')?
+    '{'
+        ('type' ':' eventType=ID (';' | ','))?
+        ('when' condition=Expr ';')?
+        ('probability' '=' prob=ProbabilityLiteral ';')?
+        (('prob' | 'rate') '=' rate=FLOAT (unit=('Hz' | '/s'))? ';')?
+        ('arrival' '=' distribution=[DistDef] ';')?
+        ('payload' ':' payloadType=TypeRef ';')?
+        ('payload' '{' fields*=FieldDef '}' ';')?
+    '}'
+;
+
+Trigger:
+    'trigger' name=ID?
+    'on' event=[Event]
+    ('guard' guard=Expr | 'when' guard=Expr)?
+    ('do' action=ActionBlock | 'effect' action=ActionBlock)?
+    ';'
+;

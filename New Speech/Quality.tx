@@ -1,0 +1,61 @@
+module Quality requires Core;
+
+///////////////////////////////////////////////////////
+// Eigenschaften, Anforderungen und NFPs
+///////////////////////////////////////////////////////
+
+extend ExtensionElementContribution:
+      PropertyDecl
+    | NFRDecl
+    | Property
+    | NFP
+;
+
+PropKind: 'safety' | 'liveness' | 'invariant' | 'response';
+
+PropertyDecl:
+    'property' name=ID
+    (annotations+=Annotation)*
+    '{'
+        spec=TemporalSpec ';'
+    '}'
+;
+
+TemporalSpec:
+      'ALWAYS' condition=Expr
+    | 'EVENTUALLY' condition=Expr
+    | 'WITHIN' bound=DurationLiteral ':' condition=Expr
+    | 'LEADS_TO' a=Expr '->' b=Expr ('WITHIN' bound=DurationLiteral)?
+;
+
+NFRDecl:
+    'nfr' name=ID
+    (annotations+=Annotation)*
+    '{'
+        'metric' ':' metric=ID ';'
+        'target' ':' comparator=CompOp value=Expr ';'
+        ('scope' ':' scope=ID ';')?
+    '}'
+;
+
+CompOp:
+      '<=' | '>=' | '==' | '<' | '>' | '!='
+;
+
+Property:
+    'property' name=ID kind=PropKind ':' Expr ';'
+;
+
+NFP:
+    'nfp' name=ID '{'
+        ('framerate'   op_fps=RelOp   fps=INT ';')?
+        ('latency'     op_lat=RelOp   lat=DurationLiteral ';')?
+        ('jitter'      op_j=RelOp     jit=DurationLiteral ';')?
+        ('reliability' op_r=RelOp     rel=FLOAT ';')?
+        ('throughput'  op_tp=RelOp    tp=FLOAT tpu=ThroughputUnit ';')?
+        ('cpu'         op_cpu=RelOp   cpu=FLOAT '%' ';')?
+        ('memory'      op_mem=RelOp   mem=INT mu=MemUnit ';')?
+        ('energy'      op_en=RelOp    en=FLOAT eu=EnergyUnit ';')?
+        ('qoe'         op_qoe=RelOp   qoe=INT ';')?
+    '}'
+;

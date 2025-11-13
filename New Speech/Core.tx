@@ -1,0 +1,275 @@
+module Core;
+
+///////////////////////////////////////////////////////
+// 0) Gemeinsame Tokens & Basistypen
+///////////////////////////////////////////////////////
+
+terminal ID: /[A-Za-z_][A-Za-z0-9_]*/;
+terminal INT: /[0-9]+/;
+terminal FLOAT: /[0-9]+(\.[0-9]+)?/;
+terminal STRING: /"([^"\\]|\\.)*"/;
+terminal BOOL: /true|false/;
+terminal UNIT: /ms|s|m|h/;
+
+DurationUnit: 'ns' | 'us' | 'ms' | 's' | 'min' | 'h';
+DistanceUnit: 'mm' | 'cm' | 'm' | 'km';
+SpeedUnit: 'mps' | 'kmph';
+AngleUnit: 'deg' | 'rad';
+ThroughputUnit: 'msg/s' | 'Hz';
+MemUnit: 'KB' | 'MB' | 'GB';
+EnergyUnit: 'J' | 'kJ' | 'Wh';
+
+///////////////////////////////////////////////////////
+// 1) Modellrahmen & Annotationen
+///////////////////////////////////////////////////////
+
+Model:
+    'model' name=ID
+    ('package' package=FQN)?
+    imports*=Import
+    '{'
+        elements*=Element
+    '}'
+;
+
+Package: 'package' name=FQN ';' ;
+Import:  'import' importURI=STRING ('as' alias=ID)? ';' ;
+FQN: ID ('.' ID)* ;
+
+Annotation:
+    '@' name=ID ('(' args+=AnnotationArg (',' args+=AnnotationArg)* ')')?
+;
+
+AnnotationArg:
+    name=ID '=' value=Literal
+;
+
+///////////////////////////////////////////////////////
+// 2) Erweiterbare Element-Liste
+///////////////////////////////////////////////////////
+
+Element:
+      CoreElementContribution
+    | ExtensionElementContribution
+;
+
+// Core liefert elementare Deklarationen. Weitere Module
+// erweitern "ExtensionElementContribution" mit eigenen Typen.
+CoreElementContribution:
+      TypeDef
+    | ConstDecl
+    | VarDecl
+    | DistDef
+;
+
+DistKind: 'uniform' | 'normal' | 'exp' | 'bernoulli';
+
+DistDef:
+    'dist' name=ID '=' kind=(DistKind | ID) '(' (params+=Expr (',' params+=Expr)*)? ')' ';'
+;
+
+ExtensionElementContribution:
+    // leer – Module verwenden "extend ExtensionElementContribution: ...".
+;
+
+///////////////////////////////////////////////////////
+// 3) Typen & Werte (Grundstock)
+///////////////////////////////////////////////////////
+
+BasicType:
+      'int'
+    | 'float'
+    | 'bool'
+    | 'string'
+    | 'duration'
+    | 'distance'
+    | 'speed'
+    | 'angle'
+    | 'time'
+    | 'probability'
+    | 'vector3'
+    | 'coord'
+    | ID
+;
+
+TypeRef:
+      BasicType
+    | ArrayType
+    | typedef=[TypeDef]
+    | record=[RecordType]
+    | enum=[EnumType]
+;
+
+TypeDef:
+    'type' name=ID '=' target=TypeAlias
+;
+
+TypeAlias:
+      TypeRef
+    | EnumType
+    | RecordType
+;
+
+RecordType:
+    'record' name=ID '{'
+        fields*=FieldDef
+    '}'
+;
+
+EnumType:
+    'enum' name=ID '{'
+        literals+=ID (',' literals+=ID)*
+    '}'
+;
+
+FieldDef:
+    name=ID ':' type=TypeRef ('=' default=Expr)? ';'
+;
+
+ConstDecl:
+    'const' name=ID ':' type=TypeRef '=' value=Expr ';'
+;
+
+VarDecl:
+    'var' name=ID ':' type=TypeRef ('=' init=Expr)? ';'
+;
+
+ArrayType:
+    base=TypeRef '[]'
+;
+
+///////////////////////////////////////////////////////
+// 4) Literale & Werte
+///////////////////////////////////////////////////////
+
+Literal:
+      INT
+    | FLOAT
+    | STRING
+    | BOOL
+    | DurationLiteral
+    | DistanceLiteral
+    | SpeedLiteral
+    | AngleLiteral
+    | TimeLiteral
+    | ProbabilityLiteral
+    | ArrayLiteral
+    | RangeLiteral
+;
+
+DurationLiteral:
+    value=FLOAT unit=DurationUnit
+;
+
+DistanceLiteral:
+    value=FLOAT unit=DistanceUnit
+;
+
+SpeedLiteral:
+    value=FLOAT unit=SpeedUnit
+;
+
+AngleLiteral:
+    value=FLOAT unit=AngleUnit
+;
+
+TimeLiteral:
+    'T' hour=INT ':' minute=INT (':' second=INT)?
+;
+
+ProbabilityLiteral:
+    FLOAT
+;
+
+ArrayLiteral:
+    '[' (items+=Expr (',' items+=Expr)*)? ']'
+;
+
+RangeLiteral:
+    '[' start=Expr '..' end=Expr (':' step=Expr)? ']'
+;
+
+CronLiteral:
+    STRING
+;
+
+Duration:
+    INT UNIT
+;
+
+///////////////////////////////////////////////////////
+// 5) Ausdruckssystem (kombiniert)
+///////////////////////////////////////////////////////
+
+Expr: OrExpr ;
+
+OrExpr:
+    AndExpr ('||' AndExpr)*
+;
+
+AndExpr:
+    RelExpr ('&&' RelExpr)*
+;
+
+RelExpr:
+    AddExpr (op=RelOp right=AddExpr)?
+;
+
+RelOp:
+      '==' | '!=' | '<' | '<=' | '>' | '>='
+;
+
+AddExpr:
+    left=MulExpr (ops+=AddOp rights+=MulExpr)*
+;
+
+AddOp:
+      '+' | '-'
+;
+
+MulExpr:
+    left=UnaryExpr (ops+=MulOp rights+=UnaryExpr)*
+;
+
+MulOp:
+      '*' | '/'
+;
+
+UnaryExpr:
+    (ops+=UnaryOp)* operand=PostfixExpr
+;
+
+UnaryOp:
+      '!' | '-'
+;
+
+PostfixExpr:
+    primary=PrimaryExpr (postfix+=PostfixOp)*
+;
+
+PostfixOp:
+      MemberAccess | CallSuffix | IndexSuffix
+;
+
+MemberAccess:
+    '.' memberName=ID
+;
+
+CallSuffix:
+    '(' (args+=Expr (',' args+=Expr)*)? ')'
+;
+
+IndexSuffix:
+    '[' index=Expr ']'
+;
+
+PrimaryExpr:
+      Literal
+    | ref=QualifiedRef
+    | '(' Expr ')'
+;
+
+QualifiedRef:
+    base=FQN ('.' member=ID)*
+;
+

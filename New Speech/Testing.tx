@@ -1,0 +1,57 @@
+module Testing requires Core, Actions, Scenarios, StateMachines;
+
+///////////////////////////////////////////////////////
+// Tests, Tags und Traceability
+///////////////////////////////////////////////////////
+
+extend ExtensionElementContribution:
+      TestCase
+    | Test
+    | TraceLink
+    | Tag
+;
+
+TestCase:
+    'test' name=ID
+    (annotations+=Annotation)*
+    '{'
+        ('trace' ':' reqId=STRING ';')?
+        ('setup' setup=ActionBlock)?
+        'run' target=TestTarget
+        ('assert' assertExpr=Expr)?
+        ('teardown' teardown=ActionBlock)?
+    '}'
+;
+
+TestTarget:
+      scenario=[MovementScenario]
+    | statemachine=[StateMachine]
+;
+
+Test:
+    'test' name=ID '{'
+        ('scenario' '=' scen=[Scenario] ';')?
+        ('setup'    '{' steps+=TestStep '}' )?
+        ('assert' assertions+=Expr ';')*
+        ('teardown' '{' tsteps+=TestStep '}' )?
+    '}'
+;
+
+TestStep:
+      ScenarioStep
+    | MovementStep
+;
+
+TraceLink:
+    'trace' name=ID '{'
+        'requirement' '=' req=STRING ';'
+        'scenario'    '=' scen=[Scenario] ';'
+        ('behavior'  '=' beh=QualifiedRef ';')?
+        ('test'      '=' test=QualifiedRef ';')?
+        ('tags'      ':' tags+=ID (',' tags+=ID)* ';')?
+    '}'
+;
+
+Tag:
+    'tag' target=QualifiedRef ':' values+=ID (',' values+=ID)* ';'
+;

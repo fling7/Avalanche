@@ -1,0 +1,87 @@
+module Actions requires Core;
+
+///////////////////////////////////////////////////////
+// Aktionen, Funktionen und Operationen
+///////////////////////////////////////////////////////
+
+extend ExtensionElementContribution:
+      FunctionDef
+    | ActionPrototype
+;
+
+FunctionDef:
+    'function' name=ID '(' (params+=Param (',' params+=Param)*)? ')'
+    (':' returnType=TypeRef)?
+    (annotations+=Annotation)*
+    body=ActionBlock
+;
+
+Param:
+    name=ID ':' type=TypeRef ('=' default=Expr)?
+;
+
+ActionPrototype:
+    'action' name=ID '(' (params+=Param (',' params+=Param)*)? ')' ';'
+;
+
+ActionBlock:
+    '{' stmts+=ActionStmt* '}'
+;
+
+ActionStmt:
+      Assignment ';'
+    | FunctionCall ';'
+    | EmitAction ';'
+    | SendAction ';'
+    | LogAction ';'
+    | CreateOp
+    | UpdateOp
+    | DeleteOp
+    | ActionInvocation ';'
+;
+
+Assignment:
+    target=QualifiedRef '=' value=Expr
+;
+
+FunctionCall:
+    'call' function=[FunctionDef] '(' (args+=Expr (',' args+=Expr)*)? ')'
+;
+
+EmitAction:
+    'emit' event=[Event] '(' (args+=Expr (',' args+=Expr)*)? ')'
+;
+
+SendAction:
+    'send' msg=Expr 'via' channel=[Channel]
+    ('delay' '=' delay=DurationLiteral)?
+    ('dist'  '=' dist=[DistDef])?
+;
+
+LogAction:
+    'log' msg=Expr
+;
+
+ActionInvocation:
+    name=ID '(' (args+=ActionArg (',' args+=ActionArg)*)? ')'
+;
+
+ActionArg:
+    key=ID '=' value=Expr
+;
+
+CreateOp:
+    'create' type=TypeRef 'as' varName=ID
+    ('with' init=Expr)?
+    ';'
+;
+
+UpdateOp:
+    'update' target=QualifiedRef
+    'set' field=ID '=' value=Expr
+    ';'
+;
+
+DeleteOp:
+    'delete' target=QualifiedRef ';'
+;

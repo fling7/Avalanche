@@ -1,0 +1,145 @@
+module Scenarios requires Core, Actions, Events;
+
+///////////////////////////////////////////////////////
+// Szenarien, Abläufe und Synchronisation
+///////////////////////////////////////////////////////
+
+ScenarioSyncMode: 'all' | 'any' | 'hard' | 'soft';
+SyncMode: ScenarioSyncMode; // Alias für ältere Modelle
+
+extend ExtensionElementContribution:
+      MovementScenario
+    | Scenario
+;
+
+// Bewegungsorientiertes Profil (avaAltered)
+MovementScenario:
+    'scenario' name=ID
+    (annotations+=Annotation)*
+    '{'
+        locals*=ScenarioLocal
+        steps+=MovementStep+
+    '}'
+;
+
+ScenarioLocal:
+      VarDecl
+    | ConstDecl
+;
+
+MovementStep:
+      StepDuration
+    | StepDistance
+    | BlockStep
+    | MovementWait
+    | ChoiceStep
+    | ParallelStep
+    | PassiveSync
+    | ExpectObservation
+;
+
+StepDuration:
+    'stepDuration' name=ID?
+    'for' duration=DurationLiteral
+    ('using' distribution=[DistDef])?
+    ';'
+;
+
+StepDistance:
+    'stepDistance' name=ID?
+    'distance' distance=DistanceLiteral
+    ('using' distribution=[DistDef])?
+    ';'
+;
+
+BlockStep:
+    'step' name=ID 'do' action=ActionBlock
+;
+
+MovementWait:
+    'wait'
+    (('for' duration=DurationLiteral) | ('until' event=[Event]))
+    ';'
+;
+
+ChoiceStep:
+    'choice' name=ID? '{'
+        alternatives+=ChoiceAlternative+
+    '}' ';'
+;
+
+ChoiceAlternative:
+      ('when' guard=Expr)? ':' steps+=MovementStep+
+    | 'if' cond=Expr 'then' '{' steps+=MovementStep* '}' ('else' '{' else_steps+=MovementStep* '}')?
+;
+
+ParallelStep:
+    'parallel' name=ID? '{'
+        branches+=ParallelBranch+
+    '}' ';'
+;
+
+ParallelBranch:
+      'branch' name=ID '{' steps+=MovementStep+ '}'
+    | '{' steps+=MovementStep* '}'
+;
+
+PassiveSync:
+    'sync'
+    (('with' targets+=QualifiedRef (',' targets+=QualifiedRef)* ('mode' mode=ScenarioSyncMode)?)
+     | (mode=ScenarioSyncMode)?)
+    ';'
+;
+
+ExpectObservation:
+    'expect' ('within' window=DurationLiteral)? condition=Expr ';'
+;
+// Orchestrierungsprofil (avalanche.tx)
+Scenario:
+    'scenario' name=ID
+    '{'
+        steps+=ScenarioStep*
+    '}'
+;
+
+ScenarioStep:
+      ActionDirective
+    | StructuredChoice
+    | StructuredParallel
+    | TimedWait
+    | PassiveSync
+;
+
+ActionDirective:
+    'do' action=ActionInvocation
+        ('expect' expect=Expr)?
+        ('else' alt=ActionInvocation)?
+        ('except' ex=ActionInvocation)?
+        ('guard' guard=Expr)?
+        ';'
+;
+
+StructuredChoice:
+    'choice' '{'
+        options+=Option
+    '}' ';'
+;
+
+Option:
+    'if' cond=Expr 'then' '{' steps+=ScenarioStep* '}'
+    ('else' '{' else_steps+=ScenarioStep* '}')?
+;
+
+StructuredParallel:
+    'parallel' '{'
+        branches+=ScenarioBranch (',' branches+=ScenarioBranch)*
+    '}' ';'
+;
+
+ScenarioBranch:
+    '{' steps+=ScenarioStep* '}'
+;
+
+TimedWait:
+    'wait' duration=Duration ('until' cond=Expr)? ';'
+;

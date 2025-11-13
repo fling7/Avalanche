@@ -1,0 +1,64 @@
+module Communication requires Core, Actions;
+
+///////////////////////////////////////////////////////
+// Nachrichtenbasierte Kommunikation
+///////////////////////////////////////////////////////
+
+Direction: 'in' | 'out' | 'inout';
+
+extend ExtensionElementContribution:
+      Message
+    | Actor
+    | Channel
+;
+
+Message:
+    'message' name=ID '{'
+        fields*=FieldDef
+    '}'
+;
+
+Actor:
+    'actor' name=ID
+    (annotations+=Annotation)*
+    '{'
+        items*=ActorItem
+    '}'
+;
+
+ActorItem:
+      Attr
+    | Port
+    | VarDecl
+    | ConstDecl
+    | FunctionDef
+    | ActionPrototype
+    | ActorItemExtension
+;
+
+ActorItemExtension:
+    // andere Module hängen sich hier ein (z. B. Events)
+;
+
+Attr:
+    'attr' name=ID ':' type=TypeRef ('=' default=Expr)? ';'
+;
+
+Port:
+    direction=Direction 'port' name=ID ':' (message=[Message] | type=TypeRef)
+    ('latency' '=' latency=DurationLiteral)?
+    ('capacity' '=' capacity=INT)?
+    ('loss' '=' loss=ProbabilityLiteral)?
+    ';'
+;
+
+Channel:
+    'channel' name=ID '{'
+        'from' src=[Port]
+        'to'   dst=[Port]
+        ('type' ':' msg=[Message])?
+        ('latency' '=' latency=DurationLiteral)?
+        ('capacity' '=' capacity=INT)?
+        ('loss' '=' loss=ProbabilityLiteral)?
+    '}'
+;

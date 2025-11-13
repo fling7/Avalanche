@@ -1,0 +1,32 @@
+module Timing requires Core, Scenarios;
+
+///////////////////////////////////////////////////////
+// Zeitliche Randbedingungen
+///////////////////////////////////////////////////////
+
+extend ExtensionElementContribution:
+      TimeConstraint
+;
+
+TimeConstraint:
+      'timeConstraint' name=ID '{'
+          ('deadline'     '<=' max=DurationLiteral        ';')?
+          ('period'       '='  period=DurationLiteral     ';')?
+          ('responseTime' '<=' response=DurationLiteral   ';')?
+          ('timeWindow'   '='  '[' start=TimeLiteral '..' end=TimeLiteral ']' ';')?
+          ('cron'         '='  cron=CronLiteral           ';')?
+      '}'
+    | 'time' name=ID '{'
+          ('reaction' '=' reaction=Duration ';')?
+          ('duration' '=' dur=Duration ';')?
+          ('period'   '=' period=Duration ';')?
+          ('deadline' '=' deadline=Duration ';')?
+          ('window'   '=' '[' start=Duration '..' end=Duration ']' ';')?
+          ('cron'     '=' cron=STRING ';')?
+          ('sync'     '=' SyncSpec ';')?
+      '}'
+;
+
+SyncSpec:
+    'with' refs+=QualifiedRef (',' refs+=QualifiedRef)* ('mode' mode=ScenarioSyncMode)?
+;
