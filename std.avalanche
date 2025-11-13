@@ -1,6 +1,6 @@
 package std;
 
-type Input = record { source: string; }
+type Input = record { source: string; };
 
 actor Std {
   action log(msg: string);
