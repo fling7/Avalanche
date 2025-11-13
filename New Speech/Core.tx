@@ -65,7 +65,7 @@ CoreElementContribution:
 DistKind: 'uniform' | 'normal' | 'exp' | 'bernoulli';
 
 DistDef:
-    'dist' name=ID '=' kind=(DistKind | ID) '(' (params+=Expr (',' params+=Expr)*)? ')' ';'
+    'dist' name=ID '=' (kind=DistKind | kind=ID) '(' (params+=Expr (',' params+=Expr)*)? ')' ';'
 ;
 
 ExtensionElementContribution:
