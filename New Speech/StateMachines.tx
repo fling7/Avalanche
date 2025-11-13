@@ -1,0 +1,64 @@
+module StateMachines requires Core, Actions, Events;
+
+///////////////////////////////////////////////////////
+// Zustandsautomaten und Modussteuerung
+///////////////////////////////////////////////////////
+
+extend ExtensionElementContribution:
+      StateMachine
+    | StandaloneState
+;
+
+StateMachine:
+    ('statemachine' | 'stateMachine') name=ID
+    (annotations+=Annotation)*
+    '{'
+        items*=StateMachineItem
+    '}'
+;
+
+StateMachineItem:
+      Mode
+    | State
+    | StateTransition
+    | VarDecl
+    | ConstDecl
+    | Trigger
+;
+
+Mode:
+    'mode' name=ID ';'
+;
+
+State:
+    'state' name=ID
+    (annotations+=Annotation)*
+    '{'
+        ('entry' (':' | 'do')? entry=ActionBlock ';')?
+        ('exit'  (':' | 'do')? exit=ActionBlock  ';')?
+        (('mode'  stateMode=[Mode]) | ('mode' modeId=ID))?
+        transitions*=Transition
+    '}'
+;
+
+Transition:
+    'on' event=[Event]
+    ('guard' guard=Expr | 'when' guard=Expr)?
+    '->' target=[State]
+    ('effect' ('do')? action=ActionBlock | 'do' action=ActionBlock)?
+    ';'
+;
+
+StateTransition:
+    'transition'
+    'from' source=[State]
+    'to'   target=[State]
+    ('on' event=[Event])?
+    ('when' guard=Expr | 'guard' guard=Expr)?
+    ('do' effect=ActionBlock | 'effect' ('do')? effect=ActionBlock)?
+    ';'
+;
+
+StandaloneState:
+    State
+;

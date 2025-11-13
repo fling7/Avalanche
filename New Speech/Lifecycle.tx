@@ -1,0 +1,27 @@
+module Lifecycle requires Core, Actions;
+
+///////////////////////////////////////////////////////
+// Objektlebenszyklus
+///////////////////////////////////////////////////////
+
+extend ExtensionElementContribution:
+      Lifecycle
+;
+
+Lifecycle:
+      'lifecycle' name=ID '{'
+          ops+=LifecycleOp*
+      '}'
+    | 'lifecycle' obj=ID '{'
+          ('create' ':' ('do')? create=ActionInvocation ';')?
+          ('update' ':' ('do')? update=ActionInvocation ';')?
+          ('delete' ':' ('do')? delete=ActionInvocation ';')?
+          ('states' ':' states+=ID (',' states+=ID)* ';')?
+      '}'
+;
+
+LifecycleOp:
+      CreateOp
+    | UpdateOp
+    | DeleteOp
+;

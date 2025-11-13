@@ -1,0 +1,37 @@
+module Causality requires Core;
+
+///////////////////////////////////////////////////////
+// Abhängigkeiten und Parallelität
+///////////////////////////////////////////////////////
+
+extend ExtensionElementContribution:
+      Causality
+    | Concurrency
+;
+
+PolicyKind: 'allof' | 'anyof' | 'ordered';
+ConcurrencyKind: 'parallel' | 'exclusive' | 'alternative';
+
+Causality:
+    'causality' name=ID '{'
+        relations+=CausalRelation+
+        ('policy' policy=PolicyKind ';')?
+    '}'
+;
+
+CausalRelation:
+      lhs=FQN '->' rhs=FQN ('label' lbl=STRING)? ';'
+    | lhsGroup+=QualifiedRef (',' lhsGroup+=QualifiedRef)* '->' rhsGroup+=QualifiedRef (',' rhsGroup+=QualifiedRef)* ';'
+;
+
+Concurrency:
+    'concurrency' name=ID '{'
+        rules+=ConcurrencyRule*
+        ('parallel'   '{' parRefs+=QualifiedRef (',' parRefs+=QualifiedRef)* '}' ';')?
+        ('alternative' '{' altRefs+=QualifiedRef (',' altRefs+=QualifiedRef)* '}' ';')?
+    '}'
+;
+
+ConcurrencyRule:
+    kind=ConcurrencyKind a=QualifiedRef ',' b=QualifiedRef ';'
+;

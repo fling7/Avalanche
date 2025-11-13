@@ -1,0 +1,46 @@
+module Simulation requires Core, Timing;
+
+///////////////////////////////////////////////////////
+// Simulation und Ausführungsumgebung
+///////////////////////////////////////////////////////
+
+extend ExtensionElementContribution:
+      SimulationConfig
+    | Simulation
+    | Scheduler
+;
+
+SchedulerPolicy:
+      'fifo'
+    | 'roundrobin'
+    | 'edf'
+    | 'llf'
+;
+
+SchedulerKind: 'discrete' | 'realtime';
+
+SimulationConfig:
+    'simulation' name=ID '{'
+        ('tick'    '=' tick=DurationLiteral    ';')?
+        ('seed'    '=' seed=INT                ';')?
+        ('runtime' '=' runtime=DurationLiteral ';')?
+        ('scheduler' '=' sched=[Scheduler]     ';')?
+    '}'
+;
+
+Simulation:
+    'simulation' name=ID '{'
+        ('tick'     '=' tick=Duration ';')?
+        ('seed'     '=' seed=INT ';')?
+        ('runtime'  '=' runtime=Duration ';')?
+        ('scheduler' '=' sched=SchedulerKind ';')?
+    '}'
+;
+
+Scheduler:
+    'scheduler' name=ID '{'
+        'policy' '=' policy=SchedulerPolicy ';'
+        ('quantum' '=' quantum=DurationLiteral ';')?
+        ('priority' '=' priority=INT ';')?
+    '}'
+;
