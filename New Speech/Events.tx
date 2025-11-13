@@ -20,7 +20,7 @@ Event:
         ('type' ':' eventType=ID (';' | ','))?
         ('when' condition=Expr ';')?
         ('probability' '=' prob=ProbabilityLiteral ';')?
-        (('prob' | 'rate') '=' rate=FLOAT (unit=('Hz' | '/s'))? ';')?
+        (('prob' | 'rate') '=' rate=FLOAT (unit='Hz' | unit='/s')? ';')?
         ('arrival' '=' distribution=[DistDef] ';')?
         ('payload' ':' payloadType=TypeRef ';')?
         ('payload' '{' fields*=FieldDef '}' ';')?
